@@ -7,7 +7,8 @@ import {
   ChevronUp,
   X,
   Hash,
-  Wrench
+  Wrench,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,6 +106,9 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   
   // Add collapsed state for queued prompts
   const [queuedPromptsCollapsed, setQueuedPromptsCollapsed] = useState(false);
+  
+  // Add refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const parentRef = useRef<HTMLDivElement>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -334,6 +338,53 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       setError("Failed to load session history");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRefreshContent = async () => {
+    if (isRefreshing || isLoading) return;
+    
+    try {
+      setIsRefreshing(true);
+      setError(null);
+      
+      if (session) {
+        // Reload session history
+        await loadSessionHistory();
+        
+        // Check if session is still active
+        await checkForActiveSession();
+      } else if (claudeSessionId && extractedSessionInfo) {
+        // For active sessions without a saved session, try to reload from the session ID
+        try {
+          const history = await api.loadSessionHistory(claudeSessionId, extractedSessionInfo.projectId);
+          
+          const loadedMessages: ClaudeStreamMessage[] = history.map(entry => ({
+            ...entry,
+            type: entry.type || "assistant"
+          }));
+          
+          setMessages(loadedMessages);
+          setRawJsonlOutput(history.map(h => JSON.stringify(h)));
+        } catch (err) {
+          console.error("Failed to reload history from session ID:", err);
+        }
+      } else {
+        // For sessions without a session ID, just clear errors and try reconnecting
+        console.log("No session to refresh, clearing errors");
+      }
+      
+      // Force scroll to bottom after refresh
+      setTimeout(() => {
+        if (messages.length > 0 && parentRef.current) {
+          rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
+        }
+      }, 200);
+    } catch (err) {
+      console.error("Failed to refresh content:", err);
+      setError("Failed to refresh chat content");
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -1445,7 +1496,42 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
               extraMenuItems={
                 <>
                   {effectiveSession && (
-                    <TooltipSimple content="Session Timeline" side="top">
+                    <>
+                      <TooltipSimple content="Refresh chat content" side="top">
+                        <motion.div
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleRefreshContent}
+                            disabled={isRefreshing || isLoading}
+                            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                          >
+                            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
+                          </Button>
+                        </motion.div>
+                      </TooltipSimple>
+                      <TooltipSimple content="Session Timeline" side="top">
+                        <motion.div
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowTimeline(!showTimeline)}
+                            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                          >
+                            <GitBranch className={cn("h-3.5 w-3.5", showTimeline && "text-primary")} />
+                          </Button>
+                        </motion.div>
+                      </TooltipSimple>
+                    </>
+                  )}
+                  {!effectiveSession && messages.length > 0 && (
+                    <TooltipSimple content="Refresh chat content" side="top">
                       <motion.div
                         whileTap={{ scale: 0.97 }}
                         transition={{ duration: 0.15 }}
@@ -1453,10 +1539,11 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setShowTimeline(!showTimeline)}
+                          onClick={handleRefreshContent}
+                          disabled={isRefreshing || isLoading}
                           className="h-9 w-9 text-muted-foreground hover:text-foreground"
                         >
-                          <GitBranch className={cn("h-3.5 w-3.5", showTimeline && "text-primary")} />
+                          <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
                         </Button>
                       </motion.div>
                     </TooltipSimple>
