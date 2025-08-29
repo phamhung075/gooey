@@ -1290,8 +1290,9 @@ export const MCPWidget: React.FC<{
   toolName: string; 
   input?: any;
   result?: any;
-}> = ({ toolName, input, result: _result }) => {
+}> = ({ toolName, input, result }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [resultExpanded, setResultExpanded] = useState(true);
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme);
   
@@ -1448,6 +1449,85 @@ export const MCPWidget: React.FC<{
         {!hasInput && (
           <div className="text-xs text-muted-foreground italic px-2">
             No parameters required
+          </div>
+        )}
+        
+        {/* Result section */}
+        {result && (
+          <div className="mt-3 space-y-2">
+            <div className="border-t border-violet-500/20 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                  <span className="text-xs font-medium text-green-600 dark:text-green-400">Result</span>
+                </div>
+                <button
+                  onClick={() => setResultExpanded(!resultExpanded)}
+                  className="text-violet-500 hover:text-violet-600 transition-colors"
+                >
+                  {resultExpanded ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+              
+              {resultExpanded && (
+                <div className="rounded-lg border bg-zinc-950/50 overflow-hidden">
+                  <div className="px-3 py-2 border-b bg-zinc-900/50 flex items-center gap-2">
+                    <Code className="h-3 w-3 text-green-500" />
+                    <span className="text-xs font-mono text-muted-foreground">Response</span>
+                  </div>
+                  <div className="overflow-auto max-h-[400px]">
+                    <SyntaxHighlighter
+                      language="json"
+                      style={syntaxTheme}
+                      customStyle={{
+                        margin: 0,
+                        padding: '0.75rem',
+                        background: 'transparent',
+                        fontSize: '0.75rem',
+                        lineHeight: '1.5',
+                      }}
+                      wrapLongLines={false}
+                    >
+                      {(() => {
+                        // Extract the actual content from the result
+                        let displayContent = result;
+                        
+                        // Handle tool_result format
+                        if (result.content !== undefined) {
+                          displayContent = result.content;
+                        }
+                        
+                        // Handle different content formats
+                        if (typeof displayContent === 'string') {
+                          return displayContent;
+                        } else if (displayContent && typeof displayContent === 'object') {
+                          if (displayContent.text) {
+                            return displayContent.text;
+                          } else if (Array.isArray(displayContent)) {
+                            // Check if it's an array of content items
+                            const textContent = displayContent
+                              .map((item: any) => {
+                                if (typeof item === 'string') return item;
+                                if (item.type === 'text' && item.text) return item.text;
+                                return JSON.stringify(item, null, 2);
+                              })
+                              .join('\n');
+                            return textContent || JSON.stringify(displayContent, null, 2);
+                          } else {
+                            return JSON.stringify(displayContent, null, 2);
+                          }
+                        }
+                        return JSON.stringify(displayContent, null, 2);
+                      })()}
+                    </SyntaxHighlighter>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

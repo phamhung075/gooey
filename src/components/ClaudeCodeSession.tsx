@@ -109,6 +109,9 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   
   // Add refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number | null>(null);
+  const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
+  const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const parentRef = useRef<HTMLDivElement>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -275,10 +278,16 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     onStreamingChange?.(isLoading, claudeSessionId);
   }, [isLoading, claudeSessionId, onStreamingChange]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive (only if user is already at bottom)
   useEffect(() => {
-    if (displayableMessages.length > 0) {
-      rowVirtualizer.scrollToIndex(displayableMessages.length - 1, { align: 'end', behavior: 'smooth' });
+    if (displayableMessages.length > 0 && parentRef.current) {
+      const { scrollTop, clientHeight, scrollHeight } = parentRef.current;
+      const isNearBottom = (scrollTop + clientHeight) >= (scrollHeight - 100);
+      
+      // Only auto-scroll if user is near the bottom (not reading earlier messages)
+      if (isNearBottom) {
+        rowVirtualizer.scrollToIndex(displayableMessages.length - 1, { align: 'end', behavior: 'smooth' });
+      }
     }
   }, [displayableMessages.length, rowVirtualizer]);
 
@@ -295,6 +304,37 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     }, 0);
     setTotalTokens(tokens);
   }, [messages]);
+
+  // Auto-refresh effect
+  useEffect(() => {
+    if (isAutoRefreshEnabled && autoRefreshInterval && !isLoading) {
+      // Clear existing timer
+      if (autoRefreshTimerRef.current) {
+        clearInterval(autoRefreshTimerRef.current);
+      }
+
+      // Set up new interval
+      autoRefreshTimerRef.current = setInterval(() => {
+        if (!isRefreshing && !isLoading) {
+          handleRefreshContent();
+        }
+      }, autoRefreshInterval * 1000);
+
+      // Cleanup on unmount or when dependencies change
+      return () => {
+        if (autoRefreshTimerRef.current) {
+          clearInterval(autoRefreshTimerRef.current);
+          autoRefreshTimerRef.current = null;
+        }
+      };
+    } else {
+      // Clear timer if auto-refresh is disabled
+      if (autoRefreshTimerRef.current) {
+        clearInterval(autoRefreshTimerRef.current);
+        autoRefreshTimerRef.current = null;
+      }
+    }
+  }, [isAutoRefreshEnabled, autoRefreshInterval, isLoading, isRefreshing]);
 
   const loadSessionHistory = async () => {
     if (!session) return;
@@ -348,6 +388,11 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       setIsRefreshing(true);
       setError(null);
       
+      // Preserve current scroll position before refresh
+      const currentScrollTop = parentRef.current?.scrollTop ?? 0;
+      const isNearBottom = parentRef.current ? 
+        (currentScrollTop + parentRef.current.clientHeight) >= (parentRef.current.scrollHeight - 100) : false;
+      
       if (session) {
         // Reload session history
         await loadSessionHistory();
@@ -374,10 +419,16 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
         console.log("No session to refresh, clearing errors");
       }
       
-      // Force scroll to bottom after refresh
+      // Preserve scroll position after refresh - only auto-scroll if user was at bottom
       setTimeout(() => {
-        if (messages.length > 0 && parentRef.current) {
-          rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
+        if (parentRef.current && messages.length > 0) {
+          if (isNearBottom) {
+            // If user was near bottom, scroll to bottom to show new messages
+            rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
+          } else {
+            // If user was reading earlier messages, maintain their position
+            parentRef.current.scrollTop = currentScrollTop;
+          }
         }
       }, 200);
     } catch (err) {
@@ -385,6 +436,18 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       setError("Failed to refresh chat content");
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleToggleAutoRefresh = (interval: number | null) => {
+    if (interval === null) {
+      // Stop auto-refresh
+      setIsAutoRefreshEnabled(false);
+      setAutoRefreshInterval(null);
+    } else {
+      // Start auto-refresh with the specified interval
+      setAutoRefreshInterval(interval);
+      setIsAutoRefreshEnabled(true);
     }
   };
 
@@ -1497,22 +1560,78 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                 <>
                   {effectiveSession && (
                     <>
-                      <TooltipSimple content="Refresh chat content" side="top">
-                        <motion.div
-                          whileTap={{ scale: 0.97 }}
-                          transition={{ duration: 0.15 }}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleRefreshContent}
-                            disabled={isRefreshing || isLoading}
-                            className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                          >
-                            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-                          </Button>
-                        </motion.div>
-                      </TooltipSimple>
+                      <Popover
+                        trigger={
+                          <TooltipSimple content={isAutoRefreshEnabled ? `Auto-refresh: ${autoRefreshInterval}s` : "Refresh options"} side="top">
+                            <motion.div
+                              whileTap={{ scale: 0.97 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 text-muted-foreground hover:text-foreground relative"
+                              >
+                                <RefreshCw className={cn(
+                                  "h-3.5 w-3.5",
+                                  (isRefreshing || isAutoRefreshEnabled) && "animate-spin",
+                                  isAutoRefreshEnabled && "text-primary"
+                                )} />
+                                {isAutoRefreshEnabled && (
+                                  <div className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full animate-pulse" />
+                                )}
+                              </Button>
+                            </motion.div>
+                          </TooltipSimple>
+                        }
+                        content={
+                          <div className="w-48 p-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                handleRefreshContent();
+                                handleToggleAutoRefresh(null);
+                              }}
+                              disabled={isRefreshing || isLoading}
+                              className="w-full justify-start text-xs"
+                            >
+                              Refresh once
+                            </Button>
+                            <div className="my-1 h-px bg-border" />
+                            <div className="px-2 py-1 text-xs text-muted-foreground">Auto-refresh</div>
+                            {[5, 10, 30, 60].map(seconds => (
+                              <Button
+                                key={seconds}
+                                variant={isAutoRefreshEnabled && autoRefreshInterval === seconds ? "secondary" : "ghost"}
+                                size="sm"
+                                onClick={() => handleToggleAutoRefresh(seconds)}
+                                className="w-full justify-start text-xs"
+                              >
+                                Every {seconds} seconds
+                                {isAutoRefreshEnabled && autoRefreshInterval === seconds && (
+                                  <X className="ml-auto h-3 w-3" />
+                                )}
+                              </Button>
+                            ))}
+                            {isAutoRefreshEnabled && (
+                              <>
+                                <div className="my-1 h-px bg-border" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleToggleAutoRefresh(null)}
+                                  className="w-full justify-start text-xs text-destructive hover:text-destructive"
+                                >
+                                  Stop auto-refresh
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        }
+                        side="top"
+                        align="end"
+                      />
                       <TooltipSimple content="Session Timeline" side="top">
                         <motion.div
                           whileTap={{ scale: 0.97 }}
@@ -1531,22 +1650,78 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                     </>
                   )}
                   {!effectiveSession && messages.length > 0 && (
-                    <TooltipSimple content="Refresh chat content" side="top">
-                      <motion.div
-                        whileTap={{ scale: 0.97 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleRefreshContent}
-                          disabled={isRefreshing || isLoading}
-                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                        >
-                          <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-                        </Button>
-                      </motion.div>
-                    </TooltipSimple>
+                    <Popover
+                      trigger={
+                        <TooltipSimple content={isAutoRefreshEnabled ? `Auto-refresh: ${autoRefreshInterval}s` : "Refresh options"} side="top">
+                          <motion.div
+                            whileTap={{ scale: 0.97 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 text-muted-foreground hover:text-foreground relative"
+                            >
+                              <RefreshCw className={cn(
+                                "h-3.5 w-3.5",
+                                (isRefreshing || isAutoRefreshEnabled) && "animate-spin",
+                                isAutoRefreshEnabled && "text-primary"
+                              )} />
+                              {isAutoRefreshEnabled && (
+                                <div className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full animate-pulse" />
+                              )}
+                            </Button>
+                          </motion.div>
+                        </TooltipSimple>
+                      }
+                      content={
+                        <div className="w-48 p-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              handleRefreshContent();
+                              handleToggleAutoRefresh(null);
+                            }}
+                            disabled={isRefreshing || isLoading}
+                            className="w-full justify-start text-xs"
+                          >
+                            Refresh once
+                          </Button>
+                          <div className="my-1 h-px bg-border" />
+                          <div className="px-2 py-1 text-xs text-muted-foreground">Auto-refresh</div>
+                          {[5, 10, 30, 60].map(seconds => (
+                            <Button
+                              key={seconds}
+                              variant={isAutoRefreshEnabled && autoRefreshInterval === seconds ? "secondary" : "ghost"}
+                              size="sm"
+                              onClick={() => handleToggleAutoRefresh(seconds)}
+                              className="w-full justify-start text-xs"
+                            >
+                              Every {seconds} seconds
+                              {isAutoRefreshEnabled && autoRefreshInterval === seconds && (
+                                <X className="ml-auto h-3 w-3" />
+                              )}
+                            </Button>
+                          ))}
+                          {isAutoRefreshEnabled && (
+                            <>
+                              <div className="my-1 h-px bg-border" />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleAutoRefresh(null)}
+                                className="w-full justify-start text-xs text-destructive hover:text-destructive"
+                              >
+                                Stop auto-refresh
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      }
+                      side="top"
+                      align="end"
+                    />
                   )}
                   {messages.length > 0 && (
                     <Popover
