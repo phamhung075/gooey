@@ -109,8 +109,8 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   
   // Add refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number | null>(null);
-  const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number | null>(5); // Default to 5 seconds
+  const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(true); // Default to enabled
   const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const parentRef = useRef<HTMLDivElement>(null);
@@ -316,7 +316,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       // Set up new interval
       autoRefreshTimerRef.current = setInterval(() => {
         if (!isRefreshing && !isLoading) {
-          handleRefreshContent();
+          handleRefreshContent(true); // Pass true to indicate this is an auto-refresh
         }
       }, autoRefreshInterval * 1000);
 
@@ -381,36 +381,110 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     }
   };
 
-  const handleRefreshContent = async () => {
+  const handleRefreshContent = async (isAutoRefresh: boolean = false) => {
     if (isRefreshing || isLoading) return;
     
     try {
       setIsRefreshing(true);
       setError(null);
       
-      // Preserve current scroll position before refresh
+      // Preserve current scroll position and user read state
       const currentScrollTop = parentRef.current?.scrollTop ?? 0;
       const isNearBottom = parentRef.current ? 
         (currentScrollTop + parentRef.current.clientHeight) >= (parentRef.current.scrollHeight - 100) : false;
       
       if (session) {
-        // Reload session history
-        await loadSessionHistory();
+        if (isAutoRefresh) {
+          // SMOOTH INCREMENTAL REFRESH: Only fetch and append new messages
+          const currentMessageCount = messages.length;
+          const history = await api.loadSessionHistory(session.id, session.project_id);
+          
+          // Check if there are new messages beyond what we already have
+          if (history.length > currentMessageCount) {
+            const newMessages = history.slice(currentMessageCount);
+            const formattedNewMessages: ClaudeStreamMessage[] = newMessages.map(entry => ({
+              ...entry,
+              type: entry.type || "assistant"
+            }));
+            
+            // APPEND only new messages instead of replacing all
+            setMessages(prevMessages => [...prevMessages, ...formattedNewMessages]);
+            setRawJsonlOutput(prevOutput => [...prevOutput, ...newMessages.map(h => JSON.stringify(h))]);
+            
+            // Only auto-scroll if user is near bottom (preserve reading position)
+            if (isNearBottom && formattedNewMessages.length > 0) {
+              setTimeout(() => {
+                if (parentRef.current) {
+                  rowVirtualizer.scrollToIndex(messages.length + formattedNewMessages.length - 1, 
+                    { align: 'end', behavior: 'smooth' });
+                }
+              }, 100);
+            }
+            // If user is reading earlier messages, don't scroll at all
+          }
+        } else {
+          // MANUAL REFRESH: Full reload for manual refresh
+          await loadSessionHistory();
+          
+          // Preserve scroll position after full refresh
+          setTimeout(() => {
+            if (parentRef.current && messages.length > 0) {
+              if (isNearBottom) {
+                rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
+              } else {
+                parentRef.current.scrollTop = currentScrollTop;
+              }
+            }
+          }, 200);
+        }
         
         // Check if session is still active
         await checkForActiveSession();
       } else if (claudeSessionId && extractedSessionInfo) {
-        // For active sessions without a saved session, try to reload from the session ID
+        // For active sessions without a saved session, try incremental reload
         try {
+          const currentMessageCount = messages.length;
           const history = await api.loadSessionHistory(claudeSessionId, extractedSessionInfo.projectId);
           
-          const loadedMessages: ClaudeStreamMessage[] = history.map(entry => ({
-            ...entry,
-            type: entry.type || "assistant"
-          }));
-          
-          setMessages(loadedMessages);
-          setRawJsonlOutput(history.map(h => JSON.stringify(h)));
+          if (isAutoRefresh && history.length > currentMessageCount) {
+            // Incremental update for auto-refresh
+            const newMessages = history.slice(currentMessageCount);
+            const formattedNewMessages: ClaudeStreamMessage[] = newMessages.map(entry => ({
+              ...entry,
+              type: entry.type || "assistant"
+            }));
+            
+            setMessages(prevMessages => [...prevMessages, ...formattedNewMessages]);
+            setRawJsonlOutput(prevOutput => [...prevOutput, ...newMessages.map(h => JSON.stringify(h))]);
+            
+            if (isNearBottom && formattedNewMessages.length > 0) {
+              setTimeout(() => {
+                if (parentRef.current) {
+                  rowVirtualizer.scrollToIndex(messages.length + formattedNewMessages.length - 1, 
+                    { align: 'end', behavior: 'smooth' });
+                }
+              }, 100);
+            }
+          } else if (!isAutoRefresh) {
+            // Full reload for manual refresh
+            const loadedMessages: ClaudeStreamMessage[] = history.map(entry => ({
+              ...entry,
+              type: entry.type || "assistant"
+            }));
+            
+            setMessages(loadedMessages);
+            setRawJsonlOutput(history.map(h => JSON.stringify(h)));
+            
+            setTimeout(() => {
+              if (parentRef.current && loadedMessages.length > 0) {
+                if (isNearBottom) {
+                  rowVirtualizer.scrollToIndex(loadedMessages.length - 1, { align: 'end', behavior: 'smooth' });
+                } else {
+                  parentRef.current.scrollTop = currentScrollTop;
+                }
+              }
+            }, 200);
+          }
         } catch (err) {
           console.error("Failed to reload history from session ID:", err);
         }
@@ -418,19 +492,6 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
         // For sessions without a session ID, just clear errors and try reconnecting
         console.log("No session to refresh, clearing errors");
       }
-      
-      // Preserve scroll position after refresh - only auto-scroll if user was at bottom
-      setTimeout(() => {
-        if (parentRef.current && messages.length > 0) {
-          if (isNearBottom) {
-            // If user was near bottom, scroll to bottom to show new messages
-            rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
-          } else {
-            // If user was reading earlier messages, maintain their position
-            parentRef.current.scrollTop = currentScrollTop;
-          }
-        }
-      }, 200);
     } catch (err) {
       console.error("Failed to refresh content:", err);
       setError("Failed to refresh chat content");
@@ -1590,7 +1651,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                handleRefreshContent();
+                                handleRefreshContent(false); // Manual refresh (full reload)
                                 handleToggleAutoRefresh(null);
                               }}
                               disabled={isRefreshing || isLoading}
@@ -1680,7 +1741,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              handleRefreshContent();
+                              handleRefreshContent(false); // Manual refresh (full reload)
                               handleToggleAutoRefresh(null);
                             }}
                             disabled={isRefreshing || isLoading}
