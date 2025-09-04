@@ -1,19 +1,19 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Gooey",
-  "version": "0.1.0",
-  "identifier": "gooey.asterisk.so",
+  "productName": "opcode",
+  "version": "0.2.1",
+  "identifier": "opcode.asterisk.so",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"
   },
   "app": {
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Gooey",
+        "title": "opcode",
         "width": 800,
         "height": 600,
         "decorations": false,
@@ -66,8 +66,11 @@
     ],
     "icon": [
       "icons/32x32.png",
+      "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico",
       "icons/icon.icns"
     ],
     "resources": [],
@@ -75,7 +78,7 @@
     "copyright": "© 2025 Asterisk. All rights reserved.",
     "category": "DeveloperTool",
     "shortDescription": "GUI app and Toolkit for Claude Code",
-    "longDescription": "Gooey is a comprehensive GUI application and toolkit for working with Claude Code, providing an intuitive interface for AI-assisted development.",
+    "longDescription": "opcode is a comprehensive GUI application and toolkit for working with Claude Code, providing an intuitive interface for AI-assisted development.",
     "linux": {
       "appimage": {
         "bundleMediaFramework": true
@@ -90,7 +93,12 @@
       "exceptionDomain": "",
       "signingIdentity": null,
       "providerShortName": null,
-      "entitlements": "entitlements.plist"
+      "entitlements": "entitlements.plist",
+      "dmg": {
+        "windowSize": { "width": 540, "height": 380 },
+        "appPosition": { "x": 140, "y": 200 },
+        "applicationFolderPosition": { "x": 400, "y": 200 }
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/92fd93ed-e71b-4b94-b270-50684323dd00" alt="Gooey Logo" width="120" height="120">
+  <img src="src-tauri/icons/icon.png" alt="opcode Logo" width="120" height="120">
 
-  <h1>Gooey</h1>
+  <h1>opcode</h1>
   
   <p>
     <strong>A powerful GUI app and Toolkit for Claude Code</strong>
@@ -15,13 +15,8 @@
     <a href="#installation"><img src="https://img.shields.io/badge/Install-🚀-green?style=for-the-badge" alt="Installation"></a>
     <a href="#usage"><img src="https://img.shields.io/badge/Usage-📖-purple?style=for-the-badge" alt="Usage"></a>
     <a href="#development"><img src="https://img.shields.io/badge/Develop-🛠️-orange?style=for-the-badge" alt="Development"></a>
-    <a href="https://discord.gg/G9g25nj9"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+    <a href="https://discord.com/invite/KYwhHVzUsY"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
   </p>
-</div>
-
-<div align="center">
-  <h2>Notice: This project ("Gooey") is not affiliated with Anthropic.</h2>
-  <p>This project is not affiliated with, endorsed by, or sponsored by Anthropic. Claude is a trademark of Anthropic, PBC. This is an independent developer project using Claude.</p>
 </div>
 
 ![457013521-6133a738-d0cb-4d3e-8746-c6768c82672c](https://github.com/user-attachments/assets/a028de9e-d881-44d8-bae5-7326ab3558b9)
@@ -31,11 +26,14 @@ https://github.com/user-attachments/assets/bf0bdf9d-ba91-45af-9ac4-7274f57075cf
 > [!TIP]
 > **⭐ Star the repo and follow [@getAsterisk](https://x.com/getAsterisk) on X for early access to `asteria-swe-v0`**.
 
+> [!NOTE]
+> This project is not affiliated with, endorsed by, or sponsored by Anthropic. Claude is a trademark of Anthropic, PBC. This is an independent developer project using Claude.
+
 ## 🌟 Overview
 
-**Gooey** is a powerful desktop application that transforms how you interact with Claude Code. Built with Tauri 2, it provides a beautiful GUI for managing your Claude Code sessions, creating custom agents, tracking usage, and much more.
+**opcode** is a powerful desktop application that transforms how you interact with Claude Code. Built with Tauri 2, it provides a beautiful GUI for managing your Claude Code sessions, creating custom agents, tracking usage, and much more.
 
-Think of Gooey as your command center for Claude Code - bridging the gap between the command-line tool and a visual experience that makes AI-assisted development more intuitive and productive.
+Think of opcode as your command center for Claude Code - bridging the gap between the command-line tool and a visual experience that makes AI-assisted development more intuitive and productive.
 
 ## 📋 Table of Contents
 
@@ -107,9 +105,9 @@ Think of Gooey as your command center for Claude Code - bridging the gap between
 
 ### Getting Started
 
-1. **Launch Gooey**: Open the application after installation
+1. **Launch opcode**: Open the application after installation
 2. **Welcome Screen**: Choose between CC Agents or Projects
-3. **First Time Setup**: Gooey will automatically detect your `~/.claude` directory
+3. **First Time Setup**: opcode will automatically detect your `~/.claude` directory
 
 ### Managing Projects
 
@@ -164,7 +162,7 @@ Menu → MCP Manager → Add Server → Configure
 
 ### Prerequisites
 
-Before building Gooey from source, ensure you have the following installed:
+Before building opcode from source, ensure you have the following installed:
 
 #### System Requirements
 
@@ -237,8 +235,8 @@ brew install pkg-config
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/getAsterisk/gooey.git
-   cd gooey
+   git clone https://github.com/getAsterisk/opcode.git
+   cd opcode
    ```
 
 2. **Install Frontend Dependencies**
@@ -307,17 +305,17 @@ After building, you can verify the application works:
 ```bash
 # Run the built executable directly
 # Linux/macOS
-./src-tauri/target/release/gooey
+./src-tauri/target/release/opcode
 
 # Windows
-./src-tauri/target/release/gooey.exe
+./src-tauri/target/release/opcode.exe
 ```
 
 ### Build Artifacts
 
 The build process creates several artifacts:
 
-- **Executable**: The main Gooey application
+- **Executable**: The main opcode application
 - **Installers** (when using `tauri build`):
   - `.deb` package (Linux)
   - `.AppImage` (Linux)
@@ -340,7 +338,7 @@ All artifacts are located in `src-tauri/target/release/`.
 ### Project Structure
 
 ```
-gooey/
+opcode/
 ├── src/                   # React frontend
 │   ├── components/        # UI components
 │   ├── lib/               # API client & utilities
@@ -375,7 +373,7 @@ cd src-tauri && cargo fmt
 
 ## 🔒 Security
 
-Gooey prioritizes your privacy and security:
+opcode prioritizes your privacy and security:
 
 1. **Process Isolation**: Agents run in separate processes
 2. **Permission Control**: Configure file and network access per agent
@@ -412,13 +410,13 @@ This project is licensed under the AGPL License - see the [LICENSE](LICENSE) fil
     <strong>Made with ❤️ by the <a href="https://asterisk.so/">Asterisk</a></strong>
   </p>
   <p>
-    <a href="https://github.com/getAsterisk/gooey/issues">Report Bug</a>
+    <a href="https://github.com/getAsterisk/opcode/issues">Report Bug</a>
     ·
-    <a href="https://github.com/getAsterisk/gooey/issues">Request Feature</a>
+    <a href="https://github.com/getAsterisk/opcode/issues">Request Feature</a>
   </p>
 </div>
 
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=getAsterisk/gooey&type=Date)](https://www.star-history.com/#getAsterisk/gooey&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=getAsterisk/opcode&type=Date)](https://www.star-history.com/#getAsterisk/opcode&Date)

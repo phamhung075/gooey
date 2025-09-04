@@ -23,7 +23,6 @@ import { ProjectSettings } from '@/components/ProjectSettings';
 import { TabManager } from "@/components/TabManager";
 import { TabContent } from "@/components/TabContent";
 import { useTabState } from "@/hooks/useTabState";
-import { AnalyticsConsentBanner } from "@/components/AnalyticsConsent";
 import { useAppLifecycle, useTrackEvent } from "@/hooks";
 import { StartupIntro } from "@/components/StartupIntro";
 
@@ -242,7 +241,7 @@ function AppContent() {
               >
                 <h1 className="text-4xl font-bold tracking-tight">
                   <span className="rotating-symbol"></span>
-                  Welcome to Gooey
+                  Welcome to opcode
                 </h1>
               </motion.div>
 
@@ -392,8 +391,7 @@ function AppContent() {
         onAgentsClick={() => setShowAgentsModal(true)}
       /> */}
       
-      {/* Analytics Consent Banner */}
-      <AnalyticsConsentBanner />
+      
       
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">

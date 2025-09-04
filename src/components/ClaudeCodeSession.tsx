@@ -7,8 +7,7 @@ import {
   ChevronUp,
   X,
   Hash,
-  Wrench,
-  RefreshCw
+  Wrench
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,12 +105,6 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   
   // Add collapsed state for queued prompts
   const [queuedPromptsCollapsed, setQueuedPromptsCollapsed] = useState(false);
-  
-  // Add refresh state
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number | null>(5); // Default to 5 seconds
-  const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(true); // Default to enabled
-  const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const parentRef = useRef<HTMLDivElement>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -278,16 +271,10 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     onStreamingChange?.(isLoading, claudeSessionId);
   }, [isLoading, claudeSessionId, onStreamingChange]);
 
-  // Auto-scroll to bottom when new messages arrive (only if user is already at bottom)
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (displayableMessages.length > 0 && parentRef.current) {
-      const { scrollTop, clientHeight, scrollHeight } = parentRef.current;
-      const isNearBottom = (scrollTop + clientHeight) >= (scrollHeight - 100);
-      
-      // Only auto-scroll if user is near the bottom (not reading earlier messages)
-      if (isNearBottom) {
-        rowVirtualizer.scrollToIndex(displayableMessages.length - 1, { align: 'end', behavior: 'smooth' });
-      }
+    if (displayableMessages.length > 0) {
+      rowVirtualizer.scrollToIndex(displayableMessages.length - 1, { align: 'end', behavior: 'smooth' });
     }
   }, [displayableMessages.length, rowVirtualizer]);
 
@@ -304,37 +291,6 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     }, 0);
     setTotalTokens(tokens);
   }, [messages]);
-
-  // Auto-refresh effect
-  useEffect(() => {
-    if (isAutoRefreshEnabled && autoRefreshInterval && !isLoading) {
-      // Clear existing timer
-      if (autoRefreshTimerRef.current) {
-        clearInterval(autoRefreshTimerRef.current);
-      }
-
-      // Set up new interval
-      autoRefreshTimerRef.current = setInterval(() => {
-        if (!isRefreshing && !isLoading) {
-          handleRefreshContent(true); // Pass true to indicate this is an auto-refresh
-        }
-      }, autoRefreshInterval * 1000);
-
-      // Cleanup on unmount or when dependencies change
-      return () => {
-        if (autoRefreshTimerRef.current) {
-          clearInterval(autoRefreshTimerRef.current);
-          autoRefreshTimerRef.current = null;
-        }
-      };
-    } else {
-      // Clear timer if auto-refresh is disabled
-      if (autoRefreshTimerRef.current) {
-        clearInterval(autoRefreshTimerRef.current);
-        autoRefreshTimerRef.current = null;
-      }
-    }
-  }, [isAutoRefreshEnabled, autoRefreshInterval, isLoading, isRefreshing]);
 
   const loadSessionHistory = async () => {
     if (!session) return;
@@ -378,137 +334,6 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       setError("Failed to load session history");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleRefreshContent = async (isAutoRefresh: boolean = false) => {
-    if (isRefreshing || isLoading) return;
-    
-    try {
-      setIsRefreshing(true);
-      setError(null);
-      
-      // Preserve current scroll position and user read state
-      const currentScrollTop = parentRef.current?.scrollTop ?? 0;
-      const isNearBottom = parentRef.current ? 
-        (currentScrollTop + parentRef.current.clientHeight) >= (parentRef.current.scrollHeight - 100) : false;
-      
-      if (session) {
-        if (isAutoRefresh) {
-          // SMOOTH INCREMENTAL REFRESH: Only fetch and append new messages
-          const currentMessageCount = messages.length;
-          const history = await api.loadSessionHistory(session.id, session.project_id);
-          
-          // Check if there are new messages beyond what we already have
-          if (history.length > currentMessageCount) {
-            const newMessages = history.slice(currentMessageCount);
-            const formattedNewMessages: ClaudeStreamMessage[] = newMessages.map(entry => ({
-              ...entry,
-              type: entry.type || "assistant"
-            }));
-            
-            // APPEND only new messages instead of replacing all
-            setMessages(prevMessages => [...prevMessages, ...formattedNewMessages]);
-            setRawJsonlOutput(prevOutput => [...prevOutput, ...newMessages.map(h => JSON.stringify(h))]);
-            
-            // Only auto-scroll if user is near bottom (preserve reading position)
-            if (isNearBottom && formattedNewMessages.length > 0) {
-              setTimeout(() => {
-                if (parentRef.current) {
-                  rowVirtualizer.scrollToIndex(messages.length + formattedNewMessages.length - 1, 
-                    { align: 'end', behavior: 'smooth' });
-                }
-              }, 100);
-            }
-            // If user is reading earlier messages, don't scroll at all
-          }
-        } else {
-          // MANUAL REFRESH: Full reload for manual refresh
-          await loadSessionHistory();
-          
-          // Preserve scroll position after full refresh
-          setTimeout(() => {
-            if (parentRef.current && messages.length > 0) {
-              if (isNearBottom) {
-                rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
-              } else {
-                parentRef.current.scrollTop = currentScrollTop;
-              }
-            }
-          }, 200);
-        }
-        
-        // Check if session is still active
-        await checkForActiveSession();
-      } else if (claudeSessionId && extractedSessionInfo) {
-        // For active sessions without a saved session, try incremental reload
-        try {
-          const currentMessageCount = messages.length;
-          const history = await api.loadSessionHistory(claudeSessionId, extractedSessionInfo.projectId);
-          
-          if (isAutoRefresh && history.length > currentMessageCount) {
-            // Incremental update for auto-refresh
-            const newMessages = history.slice(currentMessageCount);
-            const formattedNewMessages: ClaudeStreamMessage[] = newMessages.map(entry => ({
-              ...entry,
-              type: entry.type || "assistant"
-            }));
-            
-            setMessages(prevMessages => [...prevMessages, ...formattedNewMessages]);
-            setRawJsonlOutput(prevOutput => [...prevOutput, ...newMessages.map(h => JSON.stringify(h))]);
-            
-            if (isNearBottom && formattedNewMessages.length > 0) {
-              setTimeout(() => {
-                if (parentRef.current) {
-                  rowVirtualizer.scrollToIndex(messages.length + formattedNewMessages.length - 1, 
-                    { align: 'end', behavior: 'smooth' });
-                }
-              }, 100);
-            }
-          } else if (!isAutoRefresh) {
-            // Full reload for manual refresh
-            const loadedMessages: ClaudeStreamMessage[] = history.map(entry => ({
-              ...entry,
-              type: entry.type || "assistant"
-            }));
-            
-            setMessages(loadedMessages);
-            setRawJsonlOutput(history.map(h => JSON.stringify(h)));
-            
-            setTimeout(() => {
-              if (parentRef.current && loadedMessages.length > 0) {
-                if (isNearBottom) {
-                  rowVirtualizer.scrollToIndex(loadedMessages.length - 1, { align: 'end', behavior: 'smooth' });
-                } else {
-                  parentRef.current.scrollTop = currentScrollTop;
-                }
-              }
-            }, 200);
-          }
-        } catch (err) {
-          console.error("Failed to reload history from session ID:", err);
-        }
-      } else {
-        // For sessions without a session ID, just clear errors and try reconnecting
-        console.log("No session to refresh, clearing errors");
-      }
-    } catch (err) {
-      console.error("Failed to refresh content:", err);
-      setError("Failed to refresh chat content");
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleToggleAutoRefresh = (interval: number | null) => {
-    if (interval === null) {
-      // Stop auto-refresh
-      setIsAutoRefreshEnabled(false);
-      setAutoRefreshInterval(null);
-    } else {
-      // Start auto-refresh with the specified interval
-      setAutoRefreshInterval(interval);
-      setIsAutoRefreshEnabled(true);
     }
   };
 
@@ -1620,169 +1445,21 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
               extraMenuItems={
                 <>
                   {effectiveSession && (
-                    <>
-                      <Popover
-                        trigger={
-                          <TooltipSimple content={isAutoRefreshEnabled ? `Auto-refresh: ${autoRefreshInterval}s` : "Refresh options"} side="top">
-                            <motion.div
-                              whileTap={{ scale: 0.97 }}
-                              transition={{ duration: 0.15 }}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 text-muted-foreground hover:text-foreground relative"
-                              >
-                                <RefreshCw className={cn(
-                                  "h-3.5 w-3.5",
-                                  (isRefreshing || isAutoRefreshEnabled) && "animate-spin",
-                                  isAutoRefreshEnabled && "text-primary"
-                                )} />
-                                {isAutoRefreshEnabled && (
-                                  <div className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full animate-pulse" />
-                                )}
-                              </Button>
-                            </motion.div>
-                          </TooltipSimple>
-                        }
-                        content={
-                          <div className="w-48 p-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                handleRefreshContent(false); // Manual refresh (full reload)
-                                handleToggleAutoRefresh(null);
-                              }}
-                              disabled={isRefreshing || isLoading}
-                              className="w-full justify-start text-xs"
-                            >
-                              Refresh once
-                            </Button>
-                            <div className="my-1 h-px bg-border" />
-                            <div className="px-2 py-1 text-xs text-muted-foreground">Auto-refresh</div>
-                            {[5, 10, 30, 60].map(seconds => (
-                              <Button
-                                key={seconds}
-                                variant={isAutoRefreshEnabled && autoRefreshInterval === seconds ? "secondary" : "ghost"}
-                                size="sm"
-                                onClick={() => handleToggleAutoRefresh(seconds)}
-                                className="w-full justify-start text-xs"
-                              >
-                                Every {seconds} seconds
-                                {isAutoRefreshEnabled && autoRefreshInterval === seconds && (
-                                  <X className="ml-auto h-3 w-3" />
-                                )}
-                              </Button>
-                            ))}
-                            {isAutoRefreshEnabled && (
-                              <>
-                                <div className="my-1 h-px bg-border" />
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleToggleAutoRefresh(null)}
-                                  className="w-full justify-start text-xs text-destructive hover:text-destructive"
-                                >
-                                  Stop auto-refresh
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        }
-                        side="top"
-                        align="end"
-                      />
-                      <TooltipSimple content="Session Timeline" side="top">
-                        <motion.div
-                          whileTap={{ scale: 0.97 }}
-                          transition={{ duration: 0.15 }}
+                    <TooltipSimple content="Session Timeline" side="top">
+                      <motion.div
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowTimeline(!showTimeline)}
+                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
                         >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setShowTimeline(!showTimeline)}
-                            className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                          >
-                            <GitBranch className={cn("h-3.5 w-3.5", showTimeline && "text-primary")} />
-                          </Button>
-                        </motion.div>
-                      </TooltipSimple>
-                    </>
-                  )}
-                  {!effectiveSession && messages.length > 0 && (
-                    <Popover
-                      trigger={
-                        <TooltipSimple content={isAutoRefreshEnabled ? `Auto-refresh: ${autoRefreshInterval}s` : "Refresh options"} side="top">
-                          <motion.div
-                            whileTap={{ scale: 0.97 }}
-                            transition={{ duration: 0.15 }}
-                          >
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 text-muted-foreground hover:text-foreground relative"
-                            >
-                              <RefreshCw className={cn(
-                                "h-3.5 w-3.5",
-                                (isRefreshing || isAutoRefreshEnabled) && "animate-spin",
-                                isAutoRefreshEnabled && "text-primary"
-                              )} />
-                              {isAutoRefreshEnabled && (
-                                <div className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full animate-pulse" />
-                              )}
-                            </Button>
-                          </motion.div>
-                        </TooltipSimple>
-                      }
-                      content={
-                        <div className="w-48 p-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              handleRefreshContent(false); // Manual refresh (full reload)
-                              handleToggleAutoRefresh(null);
-                            }}
-                            disabled={isRefreshing || isLoading}
-                            className="w-full justify-start text-xs"
-                          >
-                            Refresh once
-                          </Button>
-                          <div className="my-1 h-px bg-border" />
-                          <div className="px-2 py-1 text-xs text-muted-foreground">Auto-refresh</div>
-                          {[5, 10, 30, 60].map(seconds => (
-                            <Button
-                              key={seconds}
-                              variant={isAutoRefreshEnabled && autoRefreshInterval === seconds ? "secondary" : "ghost"}
-                              size="sm"
-                              onClick={() => handleToggleAutoRefresh(seconds)}
-                              className="w-full justify-start text-xs"
-                            >
-                              Every {seconds} seconds
-                              {isAutoRefreshEnabled && autoRefreshInterval === seconds && (
-                                <X className="ml-auto h-3 w-3" />
-                              )}
-                            </Button>
-                          ))}
-                          {isAutoRefreshEnabled && (
-                            <>
-                              <div className="my-1 h-px bg-border" />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleToggleAutoRefresh(null)}
-                                className="w-full justify-start text-xs text-destructive hover:text-destructive"
-                              >
-                                Stop auto-refresh
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      }
-                      side="top"
-                      align="end"
-                    />
+                          <GitBranch className={cn("h-3.5 w-3.5", showTimeline && "text-primary")} />
+                        </Button>
+                      </motion.div>
+                    </TooltipSimple>
                   )}
                   {messages.length > 0 && (
                     <Popover

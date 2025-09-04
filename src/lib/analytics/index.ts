@@ -27,12 +27,12 @@ class AnalyticsService {
     
     // Default configuration - pulled from Vite environment variables
     this.config = {
-      apiKey: import.meta.env.VITE_PUBLIC_POSTHOG_KEY || 'phc_YOUR_PROJECT_API_KEY',
-      apiHost: import.meta.env.VITE_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com',
+      apiKey: 'phc_6seRe1SJkFckJU2qQWeeIy62kaSoaUbCsdVCm1TQZg8',
+      apiHost: 'https://us.i.posthog.com',
       persistence: 'localStorage',
       autocapture: false, // We'll manually track events
       disable_session_recording: true, // Privacy first
-      opt_out_capturing_by_default: true, // Require explicit opt-in
+      opt_out_capturing_by_default: false, // Capture enabled by default
     };
   }
   
@@ -83,7 +83,7 @@ class AnalyticsService {
             anonymous: true,
             consent_date: settings.consentDate,
             app_type: 'desktop',
-            app_name: 'gooey',
+            app_name: 'opcode',
           });
           
           // Set initial screen
@@ -150,7 +150,7 @@ class AnalyticsService {
     const enhancedProperties = {
       ...sanitizedProperties,
       screen_name: this.currentScreen,
-      app_context: 'gooey_desktop',
+      app_context: 'opcode_desktop',
     };
     
     // Create event
@@ -234,7 +234,7 @@ class AnalyticsService {
           ...event.properties,
           $session_id: event.sessionId,
           timestamp: event.timestamp,
-          $current_url: `gooey://${event.properties?.screen_name || 'unknown'}`,
+          $current_url: `opcode://${event.properties?.screen_name || 'unknown'}`,
         });
       }
     });
