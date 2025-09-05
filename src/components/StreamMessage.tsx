@@ -184,7 +184,12 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                       // Task tool - for sub-agent tasks
                       if (toolName === "task" && input) {
                         renderedSomething = true;
-                        return <TaskWidget description={input.description} prompt={input.prompt} result={toolResult} />;
+                        return <TaskWidget 
+                          description={input.description} 
+                          prompt={input.prompt} 
+                          subagent_type={input.subagent_type}
+                          result={toolResult} 
+                        />;
                       }
                       
                       // Edit tool
