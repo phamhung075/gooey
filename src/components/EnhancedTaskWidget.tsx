@@ -7,13 +7,7 @@ import {
   ChevronRight,
   CheckCircle,
   Zap,
-  Terminal,
-  AlertCircle,
-  Code,
-  FileEdit,
-  Search,
-  Wrench,
-  Info
+  Terminal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
