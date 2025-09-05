@@ -286,10 +286,18 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       
       // Only auto-scroll if user is near the bottom (not reading earlier messages)
       if (isNearBottom) {
-        rowVirtualizer.scrollToIndex(displayableMessages.length - 1, { align: 'end', behavior: 'smooth' });
+        // Use requestAnimationFrame to ensure DOM has updated, then scroll to absolute bottom
+        requestAnimationFrame(() => {
+          if (parentRef.current) {
+            parentRef.current.scrollTo({
+              top: parentRef.current.scrollHeight,
+              behavior: 'smooth'
+            });
+          }
+        });
       }
     }
-  }, [displayableMessages.length, rowVirtualizer]);
+  }, [displayableMessages.length]);
 
   // Calculate total tokens from messages
   useEffect(() => {
@@ -369,8 +377,11 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       
       // Scroll to bottom after loading history
       setTimeout(() => {
-        if (loadedMessages.length > 0) {
-          rowVirtualizer.scrollToIndex(loadedMessages.length - 1, { align: 'end', behavior: 'auto' });
+        if (loadedMessages.length > 0 && parentRef.current) {
+          parentRef.current.scrollTo({
+            top: parentRef.current.scrollHeight,
+            behavior: 'auto'
+          });
         }
       }, 100);
     } catch (err) {
@@ -445,8 +456,10 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
             if (isNearBottom && formattedNewMessages.length > 0) {
               setTimeout(() => {
                 if (parentRef.current) {
-                  rowVirtualizer.scrollToIndex(history.length - 1, 
-                    { align: 'end', behavior: 'smooth' });
+                  parentRef.current.scrollTo({
+                    top: parentRef.current.scrollHeight,
+                    behavior: 'smooth'
+                  });
                 }
               }, 100);
             }
@@ -460,7 +473,10 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
           setTimeout(() => {
             if (parentRef.current && messages.length > 0) {
               if (isNearBottom) {
-                rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
+                parentRef.current.scrollTo({
+                  top: parentRef.current.scrollHeight,
+                  behavior: 'smooth'
+                });
               } else {
                 parentRef.current.scrollTop = currentScrollTop;
               }
@@ -519,8 +535,10 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
               if (isNearBottom && formattedNewMessages.length > 0) {
                 setTimeout(() => {
                   if (parentRef.current) {
-                    rowVirtualizer.scrollToIndex(history.length - 1, 
-                      { align: 'end', behavior: 'smooth' });
+                    parentRef.current.scrollTo({
+                      top: parentRef.current.scrollHeight,
+                      behavior: 'smooth'
+                    });
                   }
                 }, 100);
               }
@@ -538,7 +556,10 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
             setTimeout(() => {
               if (parentRef.current && loadedMessages.length > 0) {
                 if (isNearBottom) {
-                  rowVirtualizer.scrollToIndex(loadedMessages.length - 1, { align: 'end', behavior: 'smooth' });
+                  parentRef.current.scrollTo({
+                    top: parentRef.current.scrollHeight,
+                    behavior: 'smooth'
+                  });
                 } else {
                   parentRef.current.scrollTop = currentScrollTop;
                 }
