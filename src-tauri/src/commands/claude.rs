@@ -1208,6 +1208,55 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
         while let Ok(Some(line)) = lines.next_line().await {
             log::debug!("Claude stdout: {}", line);
             
+            // Monitor for sub-agent Task tool usage
+            if let Some(ref session_id) = *session_id_holder_clone.lock().unwrap() {
+                if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) {
+                    // Check for Task tool usage
+                    if msg["type"] == "assistant" {
+                        if let Some(content) = msg["message"]["content"].as_array() {
+                            for item in content {
+                                if item["type"] == "tool_use" && item["name"] == "Task" {
+                                    log::info!("Detected Task tool usage in session {}", session_id);
+                                    
+                                    // Emit sub-agent started event
+                                    let _ = app_handle.emit(
+                                        &format!("subagent-started:{}", session_id),
+                                        serde_json::json!({
+                                            "tool_id": item["id"],
+                                            "description": item["input"]["description"],
+                                            "prompt": item["input"]["prompt"],
+                                            "subagent_type": item["input"]["subagent_type"],
+                                        }),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Check for Task tool result
+                    if msg["type"] == "user" {
+                        if let Some(content) = msg["message"]["content"].as_array() {
+                            for item in content {
+                                if item["type"] == "tool_result" {
+                                    if let Some(tool_id) = item["tool_use_id"].as_str() {
+                                        log::info!("Task tool {} completed", tool_id);
+                                        
+                                        // Emit sub-agent complete event
+                                        let _ = app_handle.emit(
+                                            &format!("subagent-complete:{}", session_id),
+                                            serde_json::json!({
+                                                "tool_id": tool_id,
+                                                "result": item["content"],
+                                            }),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             // Parse the line to check for init message with session ID
             if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) {
                 if msg["type"] == "system" && msg["subtype"] == "init" {

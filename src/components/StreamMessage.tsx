@@ -46,12 +46,13 @@ interface StreamMessageProps {
   className?: string;
   streamMessages: ClaudeStreamMessage[];
   onLinkDetected?: (url: string) => void;
+  parentSessionId?: string | null;
 }
 
 /**
  * Component to render a single Claude Code stream message
  */
-const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, className, streamMessages, onLinkDetected }) => {
+const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, className, streamMessages, onLinkDetected, parentSessionId }) => {
   // State to track tool results mapped by tool call ID
   const [toolResults, setToolResults] = useState<Map<string, any>>(new Map());
   
@@ -203,6 +204,7 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                               subagent_type={input.subagent_type}
                               toolId={toolId}
                               result={toolResult}
+                              parentSessionId={parentSessionId || undefined}
                             />
                           </React.Suspense>
                         );

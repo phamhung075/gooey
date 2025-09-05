@@ -1409,6 +1409,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                   message={message} 
                   streamMessages={messages}
                   onLinkDetected={handleLinkDetected}
+                  parentSessionId={claudeSessionId}
                 />
               </motion.div>
             );
