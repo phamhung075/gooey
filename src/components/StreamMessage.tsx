@@ -182,12 +182,12 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                     
                     // Function to render the appropriate tool widget
                     const renderToolWidget = () => {
-                      // Task tool - for sub-agent tasks
+                      // Task tool - for sub-agent tasks with separate chat interface
                       if (toolName === "task" && input) {
                         renderedSomething = true;
-                        // Import EnhancedTaskWidget dynamically for better sub-agent display
-                        const EnhancedTaskWidget = React.lazy(() => 
-                          import('./EnhancedTaskWidget').then(m => ({ default: m.EnhancedTaskWidget }))
+                        // Import SubAgentChatViewer dynamically for separate sub-agent chat
+                        const SubAgentChatViewer = React.lazy(() => 
+                          import('./SubAgentChatViewer').then(m => ({ default: m.SubAgentChatViewer }))
                         );
                         return (
                           <React.Suspense fallback={
@@ -198,7 +198,7 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                               result={toolResult} 
                             />
                           }>
-                            <EnhancedTaskWidget
+                            <SubAgentChatViewer
                               description={input.description}
                               prompt={input.prompt}
                               subagent_type={input.subagent_type}
