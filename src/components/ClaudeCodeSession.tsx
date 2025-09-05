@@ -8,7 +8,8 @@ import {
   X,
   Hash,
   Wrench,
-  RefreshCw
+  RefreshCw,
+  ScrollText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +30,7 @@ import { SplitPane } from "@/components/ui/split-pane";
 import { WebviewPreview } from "./WebviewPreview";
 import type { ClaudeStreamMessage } from "./AgentExecution";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useTrackEvent, useComponentMetrics, useWorkflowTracking } from "@/hooks";
+import { useTrackEvent, useComponentMetrics, useWorkflowTracking, useAutoScroll } from "@/hooks";
 import { SessionPersistenceService } from "@/services/sessionPersistence";
 
 interface ClaudeCodeSessionProps {
@@ -77,6 +78,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   onProjectPathChange,
 }) => {
   const [projectPath] = useState(initialProjectPath || session?.project_path || "");
+  const { isAutoScrollEnabled, toggleAutoScroll } = useAutoScroll();
   const [messages, setMessages] = useState<ClaudeStreamMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -278,9 +280,9 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     onStreamingChange?.(isLoading, claudeSessionId);
   }, [isLoading, claudeSessionId, onStreamingChange]);
 
-  // Auto-scroll to bottom when new messages arrive (only if user is already at bottom)
+  // Auto-scroll to bottom when new messages arrive (only if user is already at bottom and auto-scroll is enabled)
   useEffect(() => {
-    if (displayableMessages.length > 0 && parentRef.current) {
+    if (displayableMessages.length > 0 && parentRef.current && isAutoScrollEnabled) {
       const { scrollTop, clientHeight, scrollHeight } = parentRef.current;
       const isNearBottom = (scrollTop + clientHeight) >= (scrollHeight - 100);
       
@@ -297,7 +299,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
         });
       }
     }
-  }, [displayableMessages.length]);
+  }, [displayableMessages.length, isAutoScrollEnabled]);
 
   // Calculate total tokens from messages
   useEffect(() => {
@@ -375,9 +377,9 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       // After loading history, we're continuing a conversation
       setIsFirstPrompt(false);
       
-      // Scroll to bottom after loading history
+      // Scroll to bottom after loading history (if auto-scroll is enabled)
       setTimeout(() => {
-        if (loadedMessages.length > 0 && parentRef.current) {
+        if (loadedMessages.length > 0 && parentRef.current && isAutoScrollEnabled) {
           parentRef.current.scrollTo({
             top: parentRef.current.scrollHeight,
             behavior: 'auto'
@@ -452,8 +454,8 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
               return prevOutput;
             });
             
-            // Only auto-scroll if user is near bottom (preserve reading position)
-            if (isNearBottom && formattedNewMessages.length > 0) {
+            // Only auto-scroll if user is near bottom and auto-scroll is enabled (preserve reading position)
+            if (isNearBottom && formattedNewMessages.length > 0 && isAutoScrollEnabled) {
               setTimeout(() => {
                 if (parentRef.current) {
                   parentRef.current.scrollTo({
@@ -472,7 +474,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
           // Preserve scroll position after full refresh
           setTimeout(() => {
             if (parentRef.current && messages.length > 0) {
-              if (isNearBottom) {
+              if (isNearBottom && isAutoScrollEnabled) {
                 parentRef.current.scrollTo({
                   top: parentRef.current.scrollHeight,
                   behavior: 'smooth'
@@ -532,7 +534,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                 return prevOutput;
               });
               
-              if (isNearBottom && formattedNewMessages.length > 0) {
+              if (isNearBottom && formattedNewMessages.length > 0 && isAutoScrollEnabled) {
                 setTimeout(() => {
                   if (parentRef.current) {
                     parentRef.current.scrollTo({
@@ -555,7 +557,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
             
             setTimeout(() => {
               if (parentRef.current && loadedMessages.length > 0) {
-                if (isNearBottom) {
+                if (isNearBottom && isAutoScrollEnabled) {
                   parentRef.current.scrollTo({
                     top: parentRef.current.scrollHeight,
                     behavior: 'smooth'
@@ -1681,6 +1683,25 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                       className="px-3 py-2 hover:bg-accent rounded-none"
                     >
                       <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </motion.div>
+                </TooltipSimple>
+                <div className="w-px h-4 bg-border" />
+                <TooltipSimple content={isAutoScrollEnabled ? "Disable auto-scroll" : "Enable auto-scroll"} side="top">
+                  <motion.div
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleAutoScroll}
+                      className={cn(
+                        "px-3 py-2 hover:bg-accent rounded-none",
+                        isAutoScrollEnabled ? "text-green-600 dark:text-green-400" : "text-gray-400 dark:text-gray-500"
+                      )}
+                    >
+                      <ScrollText className="h-4 w-4" />
                     </Button>
                   </motion.div>
                 </TooltipSimple>
