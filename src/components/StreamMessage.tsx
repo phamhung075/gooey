@@ -184,9 +184,9 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                       // Task tool - for sub-agent tasks
                       if (toolName === "task" && input) {
                         renderedSomething = true;
-                        // Import TaskWithLiveSession dynamically for live sub-agent display
-                        const TaskWithLiveSession = React.lazy(() => 
-                          import('./TaskWithLiveSession').then(m => ({ default: m.TaskWithLiveSession }))
+                        // Import EnhancedTaskWidget dynamically for better sub-agent display
+                        const EnhancedTaskWidget = React.lazy(() => 
+                          import('./EnhancedTaskWidget').then(m => ({ default: m.EnhancedTaskWidget }))
                         );
                         return (
                           <React.Suspense fallback={
@@ -197,7 +197,7 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                               result={toolResult} 
                             />
                           }>
-                            <TaskWithLiveSession
+                            <EnhancedTaskWidget
                               description={input.description}
                               prompt={input.prompt}
                               subagent_type={input.subagent_type}
