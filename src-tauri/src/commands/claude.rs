@@ -1208,17 +1208,23 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
         while let Ok(Some(line)) = lines.next_line().await {
             log::debug!("Claude stdout: {}", line);
             
-            // Monitor for sub-agent Task tool usage
+            // Monitor for sub-agent Task tool usage and messages
             if let Some(ref session_id) = *session_id_holder_clone.lock().unwrap() {
                 if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) {
-                    // Check for Task tool usage
+                    // Debug log all assistant messages to understand structure
                     if msg["type"] == "assistant" {
+                        log::debug!("Assistant message structure: {}", serde_json::to_string_pretty(&msg).unwrap_or_default());
+                        
+                        // Check for Task tool usage in different possible structures
+                        let mut found_task_tool = false;
+                        
+                        // Structure 1: message.content is array
                         if let Some(content) = msg["message"]["content"].as_array() {
                             for item in content {
                                 if item["type"] == "tool_use" && item["name"] == "Task" {
-                                    log::info!("Detected Task tool usage in session {}", session_id);
+                                    found_task_tool = true;
+                                    log::info!("Found Task tool in message.content array for session {}", session_id);
                                     
-                                    // Emit sub-agent started event
                                     let _ = app_handle.emit(
                                         &format!("subagent-started:{}", session_id),
                                         serde_json::json!({
@@ -1230,6 +1236,42 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                                     );
                                 }
                             }
+                        }
+                        
+                        // Structure 2: Direct tool_use at message level
+                        if !found_task_tool && msg["message"]["type"] == "tool_use" && msg["message"]["name"] == "Task" {
+                            found_task_tool = true;
+                            log::info!("Found Task tool at message level for session {}", session_id);
+                            
+                            let _ = app_handle.emit(
+                                &format!("subagent-started:{}", session_id),
+                                serde_json::json!({
+                                    "tool_id": msg["message"]["id"],
+                                    "description": msg["message"]["input"]["description"],
+                                    "prompt": msg["message"]["input"]["prompt"],
+                                    "subagent_type": msg["message"]["input"]["subagent_type"],
+                                }),
+                            );
+                        }
+                        
+                        // Structure 3: Check content as object with tool_use type
+                        if !found_task_tool && msg["message"]["content"]["type"] == "tool_use" && msg["message"]["content"]["name"] == "Task" {
+                            found_task_tool = true;
+                            log::info!("Found Task tool in message.content object for session {}", session_id);
+                            
+                            let _ = app_handle.emit(
+                                &format!("subagent-started:{}", session_id),
+                                serde_json::json!({
+                                    "tool_id": msg["message"]["content"]["id"],
+                                    "description": msg["message"]["content"]["input"]["description"],
+                                    "prompt": msg["message"]["content"]["input"]["prompt"],
+                                    "subagent_type": msg["message"]["content"]["input"]["subagent_type"],
+                                }),
+                            );
+                        }
+                        
+                        if found_task_tool {
+                            log::info!("Successfully detected and emitted Task tool start event for session {}", session_id);
                         }
                     }
                     
@@ -1251,6 +1293,27 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                                         );
                                     }
                                 }
+                            }
+                        }
+                    }
+                    
+                    // Detect sub-agent messages from different session IDs
+                    if let Some(msg_session_id) = msg.get("session_id").and_then(|s| s.as_str()) {
+                        if msg_session_id != *session_id && msg_session_id.len() > 10 {
+                            log::debug!("Potential sub-agent message from session: {} (parent: {})", msg_session_id, session_id);
+                            
+                            // Only emit meaningful messages (assistant or user, not just system status)
+                            if (msg["type"] == "assistant" || msg["type"] == "user") && msg.get("message").is_some() {
+                                log::info!("Emitting sub-agent message from session: {}", msg_session_id);
+                                let _ = app_handle.emit(
+                                    &format!("subagent-message:{}", session_id),
+                                    serde_json::json!({
+                                        "parent_session_id": session_id,
+                                        "sub_session_id": msg_session_id,
+                                        "message": msg,
+                                        "type": "subagent_message",
+                                    }),
+                                );
                             }
                         }
                     }
