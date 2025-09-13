@@ -285,21 +285,33 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     if (displayableMessages.length > 0 && parentRef.current && isAutoScrollEnabled) {
       const { scrollTop, clientHeight, scrollHeight } = parentRef.current;
       const isNearBottom = (scrollTop + clientHeight) >= (scrollHeight - 100);
-      
+
       // Only auto-scroll if user is near the bottom (not reading earlier messages)
       if (isNearBottom) {
-        // Use requestAnimationFrame to ensure DOM has updated, then scroll to absolute bottom
+        // Use double requestAnimationFrame to ensure virtualizer has rendered
         requestAnimationFrame(() => {
-          if (parentRef.current) {
-            parentRef.current.scrollTo({
-              top: parentRef.current.scrollHeight,
-              behavior: 'smooth'
-            });
-          }
+          requestAnimationFrame(() => {
+            if (parentRef.current) {
+              // Scroll to the very bottom with extra padding to ensure full visibility
+              const targetScroll = parentRef.current.scrollHeight + 200;
+              parentRef.current.scrollTo({
+                top: targetScroll,
+                behavior: 'smooth'
+              });
+
+              // Ensure virtualizer updates by scrolling to the last item
+              if (displayableMessages.length > 0) {
+                rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                  align: 'end',
+                  behavior: 'smooth'
+                });
+              }
+            }
+          });
         });
       }
     }
-  }, [displayableMessages.length, isAutoScrollEnabled]);
+  }, [displayableMessages.length, isAutoScrollEnabled, rowVirtualizer]);
 
   // Calculate total tokens from messages
   useEffect(() => {
@@ -380,9 +392,25 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       // Scroll to bottom after loading history (if auto-scroll is enabled)
       setTimeout(() => {
         if (loadedMessages.length > 0 && parentRef.current && isAutoScrollEnabled) {
-          parentRef.current.scrollTo({
-            top: parentRef.current.scrollHeight,
-            behavior: 'auto'
+          // Double requestAnimationFrame to ensure virtualizer has rendered
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (parentRef.current) {
+                const targetScroll = parentRef.current.scrollHeight + 200;
+                parentRef.current.scrollTo({
+                  top: targetScroll,
+                  behavior: 'auto'
+                });
+
+                // Also scroll virtualizer to last item
+                if (displayableMessages.length > 0) {
+                  rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                    align: 'end',
+                    behavior: 'auto'
+                  });
+                }
+              }
+            });
           });
         }
       }, 100);
@@ -457,12 +485,25 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
             // Only auto-scroll if user is near bottom and auto-scroll is enabled (preserve reading position)
             if (isNearBottom && formattedNewMessages.length > 0 && isAutoScrollEnabled) {
               setTimeout(() => {
-                if (parentRef.current) {
-                  parentRef.current.scrollTo({
-                    top: parentRef.current.scrollHeight,
-                    behavior: 'smooth'
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    if (parentRef.current) {
+                      const targetScroll = parentRef.current.scrollHeight + 200;
+                      parentRef.current.scrollTo({
+                        top: targetScroll,
+                        behavior: 'smooth'
+                      });
+
+                      // Also scroll virtualizer to last item
+                      if (displayableMessages.length > 0) {
+                        rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                          align: 'end',
+                          behavior: 'smooth'
+                        });
+                      }
+                    }
                   });
-                }
+                });
               }, 100);
             }
             // If user is reading earlier messages, don't scroll at all
@@ -475,9 +516,24 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
           setTimeout(() => {
             if (parentRef.current && messages.length > 0) {
               if (isNearBottom && isAutoScrollEnabled) {
-                parentRef.current.scrollTo({
-                  top: parentRef.current.scrollHeight,
-                  behavior: 'smooth'
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    if (parentRef.current) {
+                      const targetScroll = parentRef.current.scrollHeight + 200;
+                      parentRef.current.scrollTo({
+                        top: targetScroll,
+                        behavior: 'smooth'
+                      });
+
+                      // Also scroll virtualizer to last item
+                      if (displayableMessages.length > 0) {
+                        rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                          align: 'end',
+                          behavior: 'smooth'
+                        });
+                      }
+                    }
+                  });
                 });
               } else {
                 parentRef.current.scrollTop = currentScrollTop;
@@ -536,12 +592,25 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
               
               if (isNearBottom && formattedNewMessages.length > 0 && isAutoScrollEnabled) {
                 setTimeout(() => {
-                  if (parentRef.current) {
-                    parentRef.current.scrollTo({
-                      top: parentRef.current.scrollHeight,
-                      behavior: 'smooth'
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      if (parentRef.current) {
+                        const targetScroll = parentRef.current.scrollHeight + 200;
+                        parentRef.current.scrollTo({
+                          top: targetScroll,
+                          behavior: 'smooth'
+                        });
+
+                        // Also scroll virtualizer to last item
+                        if (displayableMessages.length > 0) {
+                          rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                            align: 'end',
+                            behavior: 'smooth'
+                          });
+                        }
+                      }
                     });
-                  }
+                  });
                 }, 100);
               }
             }
@@ -558,9 +627,24 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
             setTimeout(() => {
               if (parentRef.current && loadedMessages.length > 0) {
                 if (isNearBottom && isAutoScrollEnabled) {
-                  parentRef.current.scrollTo({
-                    top: parentRef.current.scrollHeight,
-                    behavior: 'smooth'
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      if (parentRef.current) {
+                        const targetScroll = parentRef.current.scrollHeight + 200;
+                        parentRef.current.scrollTo({
+                          top: targetScroll,
+                          behavior: 'smooth'
+                        });
+
+                        // Also scroll virtualizer to last item
+                        if (displayableMessages.length > 0) {
+                          rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                            align: 'end',
+                            behavior: 'smooth'
+                          });
+                        }
+                      }
+                    });
                   });
                 } else {
                   parentRef.current.scrollTop = currentScrollTop;
@@ -1670,11 +1754,19 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                       onClick={() => {
                       // Use virtualizer to scroll to the last item
                       if (displayableMessages.length > 0) {
-                        // Scroll to bottom of the container
+                        // Scroll to bottom of the container with extra padding
                         const scrollElement = parentRef.current;
                         if (scrollElement) {
+                          // First scroll to bottom with extra padding
+                          const targetScroll = scrollElement.scrollHeight + 200;
                           scrollElement.scrollTo({
-                            top: scrollElement.scrollHeight,
+                            top: targetScroll,
+                            behavior: 'smooth'
+                          });
+
+                          // Also ensure virtualizer scrolls to last item
+                          rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                            align: 'end',
                             behavior: 'smooth'
                           });
                         }
