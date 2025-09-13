@@ -764,7 +764,7 @@ export const WriteWidget: React.FC<{ filePath: string; content: string; result?:
           <div className="px-6 py-4 border-b bg-zinc-950 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <FileText className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-mono text-muted-foreground">{filePath}</span>
+              <FilePath path={filePath} size="sm" showFullPath={true} />
             </div>
             <Button 
               variant="ghost" 
@@ -853,9 +853,7 @@ export const WriteWidget: React.FC<{ filePath: string; content: string; result?:
       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
         <FileEdit className="h-4 w-4 text-primary" />
         <span className="text-sm">Writing to file:</span>
-        <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-          {filePath}
-        </code>
+        <FilePath path={filePath} size="sm" />
       </div>
       <CodePreview codeContent={displayContent} truncated={true} />
       <MaximizedView />
@@ -956,9 +954,7 @@ export const GrepWidget: React.FC<{
                 <FolderOpen className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs font-medium text-muted-foreground">Path</span>
               </div>
-              <code className="flex-1 font-mono text-xs bg-muted px-2 py-1 rounded truncate">
-                {path}
-              </code>
+              <FilePath path={path} size="sm" />
             </div>
           )}
           
@@ -1021,35 +1017,22 @@ export const GrepWidget: React.FC<{
                 <div className="rounded-lg border bg-zinc-950 overflow-hidden">
                   <div className="max-h-[400px] overflow-y-auto">
                     {grepResults.map((match, idx) => {
-                      const fileName = match.file.split('/').pop() || match.file;
-                      const dirPath = match.file.substring(0, match.file.lastIndexOf('/'));
-                      
                       return (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           className={cn(
                             "flex items-start gap-3 p-3 border-b border-zinc-800 hover:bg-zinc-900/50 transition-colors",
                             idx === grepResults.length - 1 && "border-b-0"
                           )}
                         >
                           <div className="flex items-center gap-2 min-w-[60px]">
-                            <FileText className="h-3.5 w-3.5 text-emerald-500" />
                             <span className="text-xs font-mono text-emerald-400">
                               {match.lineNumber}
                             </span>
                           </div>
-                          
+
                           <div className="flex-1 space-y-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-blue-400 truncate">
-                                {fileName}
-                              </span>
-                              {dirPath && (
-                                <span className="text-xs text-muted-foreground truncate">
-                                  {dirPath}
-                                </span>
-                              )}
-                            </div>
+                            <FilePath path={match.file} size="sm" />
                             <code className="text-xs font-mono text-zinc-300 block whitespace-pre-wrap break-all">
                               {match.content.trim()}
                             </code>
@@ -1245,7 +1228,7 @@ export const EditResultWidget: React.FC<{ content: string }> = ({ content }) => 
         {filePath && (
           <>
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs font-mono text-muted-foreground">{filePath}</span>
+            <FilePath path={filePath} size="sm" />
           </>
         )}
       </div>
