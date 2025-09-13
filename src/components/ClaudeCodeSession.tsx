@@ -1716,24 +1716,21 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                       onClick={() => {
                       // Use virtualizer to scroll to the first item
                       if (displayableMessages.length > 0) {
-                        // Scroll to top of the container
-                        parentRef.current?.scrollTo({
-                          top: 0,
+                        // First, use virtualizer to scroll to the first item
+                        rowVirtualizer.scrollToIndex(0, {
+                          align: 'start',
                           behavior: 'smooth'
                         });
-                        
-                        // After smooth scroll completes, trigger a small scroll to ensure rendering
+
+                        // Also scroll container to absolute top
                         setTimeout(() => {
                           if (parentRef.current) {
-                            // Scroll down 1px then back to 0 to trigger virtualizer update
-                            parentRef.current.scrollTop = 1;
-                            requestAnimationFrame(() => {
-                              if (parentRef.current) {
-                                parentRef.current.scrollTop = 0;
-                              }
+                            parentRef.current.scrollTo({
+                              top: 0,
+                              behavior: 'smooth'
                             });
                           }
-                        }, 500); // Wait for smooth scroll to complete
+                        }, 100);
                       }
                     }}
                       className="px-3 py-2 hover:bg-accent rounded-none"
@@ -1754,22 +1751,23 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                       onClick={() => {
                       // Use virtualizer to scroll to the last item
                       if (displayableMessages.length > 0) {
-                        // Scroll to bottom of the container with extra padding
-                        const scrollElement = parentRef.current;
-                        if (scrollElement) {
-                          // First scroll to bottom with extra padding
-                          const targetScroll = scrollElement.scrollHeight + 200;
-                          scrollElement.scrollTo({
-                            top: targetScroll,
-                            behavior: 'smooth'
-                          });
+                        // First, use virtualizer to scroll to the last item
+                        rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
+                          align: 'end',
+                          behavior: 'smooth'
+                        });
 
-                          // Also ensure virtualizer scrolls to last item
-                          rowVirtualizer.scrollToIndex(displayableMessages.length - 1, {
-                            align: 'end',
-                            behavior: 'smooth'
-                          });
-                        }
+                        // Then scroll container to absolute bottom with padding
+                        setTimeout(() => {
+                          const scrollElement = parentRef.current;
+                          if (scrollElement) {
+                            const targetScroll = scrollElement.scrollHeight + 200;
+                            scrollElement.scrollTo({
+                              top: targetScroll,
+                              behavior: 'smooth'
+                            });
+                          }
+                        }, 100);
                       }
                     }}
                       className="px-3 py-2 hover:bg-accent rounded-none"
