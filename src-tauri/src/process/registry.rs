@@ -483,6 +483,15 @@ impl ProcessRegistry {
         }
     }
 
+    /// Get all active sessions (both Claude sessions and agent runs)
+    pub fn get_all_active_sessions(&self) -> Result<Vec<ProcessInfo>, String> {
+        let processes = self.processes.lock().map_err(|e| e.to_string())?;
+        Ok(processes
+            .values()
+            .map(|handle| handle.info.clone())
+            .collect())
+    }
+
     /// Cleanup finished processes
     #[allow(dead_code)]
     pub async fn cleanup_finished_processes(&self) -> Result<Vec<i64>, String> {

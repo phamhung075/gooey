@@ -47,6 +47,8 @@ import {
   LayoutList,
   Activity,
   Hash,
+  CheckCircle,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -1290,8 +1292,9 @@ export const MCPWidget: React.FC<{
   toolName: string; 
   input?: any;
   result?: any;
-}> = ({ toolName, input, result: _result }) => {
+}> = ({ toolName, input, result }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [resultExpanded, setResultExpanded] = useState(true);
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme);
   
@@ -1448,6 +1451,85 @@ export const MCPWidget: React.FC<{
         {!hasInput && (
           <div className="text-xs text-muted-foreground italic px-2">
             No parameters required
+          </div>
+        )}
+        
+        {/* Result section */}
+        {result && (
+          <div className="mt-3 space-y-2">
+            <div className="border-t border-violet-500/20 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                  <span className="text-xs font-medium text-green-600 dark:text-green-400">Result</span>
+                </div>
+                <button
+                  onClick={() => setResultExpanded(!resultExpanded)}
+                  className="text-violet-500 hover:text-violet-600 transition-colors"
+                >
+                  {resultExpanded ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+              
+              {resultExpanded && (
+                <div className="rounded-lg border bg-zinc-950/50 overflow-hidden">
+                  <div className="px-3 py-2 border-b bg-zinc-900/50 flex items-center gap-2">
+                    <Code className="h-3 w-3 text-green-500" />
+                    <span className="text-xs font-mono text-muted-foreground">Response</span>
+                  </div>
+                  <div className="overflow-auto max-h-[400px]">
+                    <SyntaxHighlighter
+                      language="json"
+                      style={syntaxTheme}
+                      customStyle={{
+                        margin: 0,
+                        padding: '0.75rem',
+                        background: 'transparent',
+                        fontSize: '0.75rem',
+                        lineHeight: '1.5',
+                      }}
+                      wrapLongLines={false}
+                    >
+                      {(() => {
+                        // Extract the actual content from the result
+                        let displayContent = result;
+                        
+                        // Handle tool_result format
+                        if (result.content !== undefined) {
+                          displayContent = result.content;
+                        }
+                        
+                        // Handle different content formats
+                        if (typeof displayContent === 'string') {
+                          return displayContent;
+                        } else if (displayContent && typeof displayContent === 'object') {
+                          if (displayContent.text) {
+                            return displayContent.text;
+                          } else if (Array.isArray(displayContent)) {
+                            // Check if it's an array of content items
+                            const textContent = displayContent
+                              .map((item: any) => {
+                                if (typeof item === 'string') return item;
+                                if (item.type === 'text' && item.text) return item.text;
+                                return JSON.stringify(item, null, 2);
+                              })
+                              .join('\n');
+                            return textContent || JSON.stringify(displayContent, null, 2);
+                          } else {
+                            return JSON.stringify(displayContent, null, 2);
+                          }
+                        }
+                        return JSON.stringify(displayContent, null, 2);
+                      })()}
+                    </SyntaxHighlighter>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -2007,17 +2089,130 @@ export const TaskWidget: React.FC<{
   description?: string; 
   prompt?: string;
   result?: any;
-}> = ({ description, prompt, result: _result }) => {
+  subagent_type?: string;
+}> = ({ description, prompt, result, subagent_type }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showResult, setShowResult] = useState(true); // Default to showing result
+  const [showFullSession, setShowFullSession] = useState(false);
   
+  // Parse result to extract sub-agent session messages and activities
+  const parseSubAgentSession = () => {
+    if (!result) return { content: null, messages: [], hasMessages: false };
+    
+    let content = null;
+    let messages = [];
+    
+    // Handle different result formats
+    if (typeof result === 'string') {
+      content = result;
+      // Try to extract structured messages from the result string
+      // Look for patterns like tool uses, responses, etc.
+      const lines = result.split('\n');
+      const sessionMessages = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        let messageType = 'text';
+        let messageContent = line;
+        
+        // Enhanced detection patterns for sub-agent activities
+        if (line.match(/^(Using|Calling|Executing|Running)\s+\w+\s+tool/i)) {
+          messageType = 'tool';
+        } else if (line.match(/^(Reading|Writing|Editing|Creating|Updating|Deleting)\s+(file|directory)/i)) {
+          messageType = 'file_op';
+        } else if (line.match(/^(Searching|Finding|Looking|Scanning|Analyzing)/i)) {
+          messageType = 'search';
+        } else if (line.match(/^(Installing|Building|Compiling|Testing|Running tests)/i)) {
+          messageType = 'build';
+        } else if (line.match(/^(Error|Failed|Exception|Warning):/i)) {
+          messageType = 'error';
+        } else if (line.match(/^(Success|Completed|Done|Finished):/i)) {
+          messageType = 'success';
+        } else if (line.match(/^I('ll|'m|'ve|\s+(will|am|have))/i)) {
+          messageType = 'thinking';
+        } else if (line.includes('```')) {
+          // Code block detection
+          messageType = 'code';
+          // Collect the entire code block
+          let codeBlock = line + '\n';
+          while (i + 1 < lines.length && !lines[i + 1].includes('```')) {
+            i++;
+            codeBlock += lines[i] + '\n';
+          }
+          if (i + 1 < lines.length) {
+            i++;
+            codeBlock += lines[i];
+          }
+          messageContent = codeBlock;
+        }
+        
+        sessionMessages.push({ type: messageType, content: messageContent });
+      }
+      messages = sessionMessages;
+    } else if (result?.content) {
+      // Handle content that might be an object with text property
+      if (typeof result.content === 'object' && result.content.text) {
+        content = result.content.text;
+      } else if (typeof result.content === 'string') {
+        content = result.content;
+      } else {
+        content = JSON.stringify(result.content, null, 2);
+      }
+    } else if (result?.output) {
+      content = result.output;
+    } else if (result?.messages) {
+      // If result contains actual message array from sub-agent
+      messages = result.messages;
+      content = result.summary || result.final_response || '';
+    } else if (typeof result === 'object' && result?.text) {
+      // Handle direct text property
+      content = result.text;
+    } else {
+      content = JSON.stringify(result, null, 2);
+    }
+    
+    return { 
+      content, 
+      messages,
+      hasMessages: messages.length > 0 
+    };
+  };
+  
+  const { content: resultContent, messages: subAgentMessages, hasMessages } = parseSubAgentSession();
+  const hasResult = resultContent && resultContent.length > 0;
+  
+  // Function to get icon and color based on message type
+  const getMessageIcon = (type: string) => {
+    switch(type) {
+      case 'tool': return <Wrench className="h-3 w-3 text-blue-500" />;
+      case 'file_op': return <FileEdit className="h-3 w-3 text-green-500" />;
+      case 'search': return <Search className="h-3 w-3 text-orange-500" />;
+      case 'build': return <Package className="h-3 w-3 text-cyan-500" />;
+      case 'error': return <AlertCircle className="h-3 w-3 text-red-500" />;
+      case 'success': return <CheckCircle className="h-3 w-3 text-green-500" />;
+      case 'thinking': return <Bot className="h-3 w-3 text-purple-500" />;
+      case 'code': return <Code className="h-3 w-3 text-indigo-500" />;
+      default: return <Activity className="h-3 w-3 text-gray-500" />;
+    }
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 mb-2">
         <div className="relative">
           <Bot className="h-4 w-4 text-purple-500" />
-          <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1" />
+          <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1 animate-pulse" />
         </div>
-        <span className="text-sm font-medium">Spawning Sub-Agent Task</span>
+        <span className="text-sm font-medium">
+          {hasResult ? "Sub-Agent Task Completed" : "Sub-Agent Session Active"}
+        </span>
+        {subagent_type && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            {subagent_type}
+          </span>
+        )}
       </div>
       
       <div className="ml-6 space-y-3">
@@ -2048,6 +2243,96 @@ export const TaskWidget: React.FC<{
                 </pre>
               </div>
             )}
+          </div>
+        )}
+        
+        {/* Show sub-agent session activities */}
+        {hasMessages && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Sub-Agent Session Activity</span>
+              {subAgentMessages.length > 3 && (
+                <button
+                  onClick={() => setShowFullSession(!showFullSession)}
+                  className="text-xs text-blue-500 hover:text-blue-600"
+                >
+                  {showFullSession ? 'Show less' : `Show all (${subAgentMessages.length} activities)`}
+                </button>
+              )}
+            </div>
+            <div className="rounded-lg border border-purple-500/10 bg-purple-500/5 p-2 space-y-2 max-h-96 overflow-y-auto">
+              {(showFullSession ? subAgentMessages : subAgentMessages.slice(-5)).map((msg: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-2 py-1 border-b border-purple-500/5 last:border-0">
+                  <div className="mt-0.5">{getMessageIcon(msg.type)}</div>
+                  <div className="flex-1 min-w-0">
+                    {msg.type === 'code' ? (
+                      <div className="rounded bg-gray-900/50 p-2 overflow-x-auto">
+                        <pre className="text-xs font-mono text-gray-300 whitespace-pre">
+                          {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2)}
+                        </pre>
+                      </div>
+                    ) : msg.type === 'error' ? (
+                      <div className="rounded bg-red-500/10 p-1.5">
+                        <pre className="text-xs text-red-400 whitespace-pre-wrap break-words">
+                          {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2)}
+                        </pre>
+                      </div>
+                    ) : msg.type === 'success' ? (
+                      <div className="rounded bg-green-500/10 p-1.5">
+                        <pre className="text-xs text-green-400 whitespace-pre-wrap break-words">
+                          {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2)}
+                        </pre>
+                      </div>
+                    ) : (
+                      <pre className={cn(
+                        "text-xs whitespace-pre-wrap break-words",
+                        msg.type === 'thinking' ? "text-purple-400 italic" : "text-muted-foreground"
+                      )}>
+                        {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Show final result */}
+        {hasResult && (
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowResult(!showResult)}
+              className="flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors"
+            >
+              <CheckCircle className="h-3.5 w-3.5" />
+              <span>Final Response</span>
+              <ChevronRight className={cn("h-3 w-3 transition-transform ml-auto", showResult && "rotate-90")} />
+            </button>
+            
+            {showResult && (
+              <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
+                <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-words">
+                  {typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Show loading state only if no result yet */}
+        {!hasResult && !hasMessages && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Sub-agent is initializing...</span>
+          </div>
+        )}
+        
+        {/* Show active indicator if we have messages but no final result */}
+        {!hasResult && hasMessages && (
+          <div className="flex items-center gap-2 text-xs text-orange-500">
+            <Activity className="h-3 w-3 animate-pulse" />
+            <span>Sub-agent is still working...</span>
           </div>
         )}
       </div>

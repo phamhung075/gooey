@@ -164,25 +164,36 @@ export const TabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const removeTab = useCallback((id: string) => {
     setTabs(prevTabs => {
       const filteredTabs = prevTabs.filter(tab => tab.id !== id);
-      
+
       // Reorder remaining tabs
       const reorderedTabs = filteredTabs.map((tab, index) => ({
         ...tab,
         order: index
       }));
 
-      // Update active tab if necessary
-      if (activeTabId === id && reorderedTabs.length > 0) {
-        const removedTabIndex = prevTabs.findIndex(tab => tab.id === id);
-        const newActiveIndex = Math.min(removedTabIndex, reorderedTabs.length - 1);
-        setActiveTabId(reorderedTabs[newActiveIndex].id);
-      } else if (reorderedTabs.length === 0) {
-        setActiveTabId(null);
-      }
-
       return reorderedTabs;
     });
-  }, [activeTabId]);
+
+    // Handle active tab update separately to avoid stale closure
+    setActiveTabId(currentActiveId => {
+      if (currentActiveId === id) {
+        // Find the index of the removed tab
+        const removedTabIndex = tabs.findIndex(tab => tab.id === id);
+        const remainingTabs = tabs.filter(tab => tab.id !== id);
+
+        if (remainingTabs.length > 0) {
+          // Select the next tab, or the previous one if we're removing the last tab
+          const newActiveIndex = Math.min(removedTabIndex, remainingTabs.length - 1);
+          return remainingTabs[newActiveIndex].id;
+        } else {
+          // No tabs left
+          return null;
+        }
+      }
+      // Active tab wasn't removed, keep it as is
+      return currentActiveId;
+    });
+  }, [tabs]);
 
   const updateTab = useCallback((id: string, updates: Partial<Tab>) => {
     setTabs(prevTabs => 

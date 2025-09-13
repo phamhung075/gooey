@@ -46,12 +46,13 @@ interface StreamMessageProps {
   className?: string;
   streamMessages: ClaudeStreamMessage[];
   onLinkDetected?: (url: string) => void;
+  parentSessionId?: string | null;
 }
 
 /**
  * Component to render a single Claude Code stream message
  */
-const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, className, streamMessages, onLinkDetected }) => {
+const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, className, streamMessages, onLinkDetected, parentSessionId }) => {
   // State to track tool results mapped by tool call ID
   const [toolResults, setToolResults] = useState<Map<string, any>>(new Map());
   
@@ -181,10 +182,32 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                     
                     // Function to render the appropriate tool widget
                     const renderToolWidget = () => {
-                      // Task tool - for sub-agent tasks
+                      // Task tool - for sub-agent tasks with separate chat interface
                       if (toolName === "task" && input) {
                         renderedSomething = true;
-                        return <TaskWidget description={input.description} prompt={input.prompt} result={toolResult} />;
+                        // Import SubAgentChatViewer dynamically for separate sub-agent chat
+                        const SubAgentChatViewer = React.lazy(() => 
+                          import('./SubAgentChatViewer').then(m => ({ default: m.SubAgentChatViewer }))
+                        );
+                        return (
+                          <React.Suspense fallback={
+                            <TaskWidget 
+                              description={input.description} 
+                              prompt={input.prompt} 
+                              subagent_type={input.subagent_type}
+                              result={toolResult} 
+                            />
+                          }>
+                            <SubAgentChatViewer
+                              description={input.description}
+                              prompt={input.prompt}
+                              subagent_type={input.subagent_type}
+                              toolId={toolId}
+                              result={toolResult}
+                              parentSessionId={parentSessionId || undefined}
+                            />
+                          </React.Suspense>
+                        );
                       }
                       
                       // Edit tool

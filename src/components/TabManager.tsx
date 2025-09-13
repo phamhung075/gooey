@@ -176,12 +176,16 @@ export const TabManager: React.FC<TabManagerProps> = ({ className }) => {
     };
 
     const handleCloseTab = async () => {
-      if (activeTabId) {
-        const tab = tabs.find(t => t.id === activeTabId);
-        if (tab) {
-          trackEvent.tabClosed(tab.type);
+      try {
+        if (activeTabId) {
+          const tab = tabs.find(t => t.id === activeTabId);
+          if (tab) {
+            trackEvent.tabClosed(tab.type);
+          }
+          await closeTab(activeTabId);
         }
-        await closeTab(activeTabId);
+      } catch (error) {
+        console.error('Error closing tab via keyboard shortcut:', error);
       }
     };
 
@@ -271,11 +275,15 @@ export const TabManager: React.FC<TabManagerProps> = ({ className }) => {
   };
 
   const handleCloseTab = async (id: string) => {
-    const tab = tabs.find(t => t.id === id);
-    if (tab) {
-      trackEvent.tabClosed(tab.type);
+    try {
+      const tab = tabs.find(t => t.id === id);
+      if (tab) {
+        trackEvent.tabClosed(tab.type);
+      }
+      await closeTab(id);
+    } catch (error) {
+      console.error('Error closing tab:', error);
     }
-    await closeTab(id);
   };
 
   const handleNewTab = () => {
