@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Terminal, 
-  User, 
-  Bot, 
-  AlertCircle, 
-  CheckCircle2
+import {
+  Terminal,
+  User,
+  Bot,
+  AlertCircle,
+  CheckCircle2,
+  Copy,
+  Check
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { TooltipProvider, TooltipSimple } from "@/components/ui/tooltip-modern";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { preprocessTextForMarkdown } from "@/lib/textUtils";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
@@ -52,6 +57,49 @@ interface StreamMessageProps {
 /**
  * Component to render a single Claude Code stream message
  */
+// Copy Raw Content Button Component
+const CopyRawButton: React.FC<{ content: string; size?: 'sm' | 'xs' }> = ({ content, size = 'sm' }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy content:', error);
+    }
+  };
+
+  return (
+    <TooltipProvider>
+      <TooltipSimple content={copied ? "Copied to clipboard!" : "Copy raw text (without markdown processing)"} side="left">
+        <Button
+          variant="ghost"
+          size={size === 'xs' ? 'sm' : 'sm'}
+          onClick={handleCopy}
+          className={cn(
+            "flex items-center gap-1.5 text-muted-foreground hover:text-foreground",
+            size === 'xs' ? 'h-6 px-2 text-xs' : 'h-7 px-2 text-xs'
+          )}
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3 text-green-500" />
+              <span>Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              <span>Copy raw</span>
+            </>
+          )}
+        </Button>
+      </TooltipSimple>
+    </TooltipProvider>
+  );
+};
+
 const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, className, streamMessages, onLinkDetected, parentSessionId }) => {
   // State to track tool results mapped by tool call ID
   const [toolResults, setToolResults] = useState<Map<string, any>>(new Map());
@@ -59,6 +107,33 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
   // Get current theme
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme);
+
+  // Small markdown components for text-sm contexts
+  const getSmallMarkdownComponents = () => ({
+    h1: ({ children }: any) => <h1 className="text-base font-semibold mb-2 mt-3">{children}</h1>,
+    h2: ({ children }: any) => <h2 className="text-sm font-semibold mb-1.5 mt-2.5">{children}</h2>,
+    h3: ({ children }: any) => <h3 className="text-xs font-semibold mb-1 mt-2">{children}</h3>,
+    h4: ({ children }: any) => <h4 className="text-xs font-medium mb-1 mt-1.5">{children}</h4>,
+    h5: ({ children }: any) => <h5 className="text-xs font-medium mb-0.5 mt-1">{children}</h5>,
+    h6: ({ children }: any) => <h6 className="text-xs font-normal mb-0.5 mt-1">{children}</h6>,
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      return !inline && match ? (
+        <SyntaxHighlighter
+          style={syntaxTheme}
+          language={match[1]}
+          PreTag="div"
+          {...props}
+        >
+          {String(children).replace(/\n$/, '')}
+        </SyntaxHighlighter>
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      );
+    }
+  });
   
   // Extract all tool results from stream messages
   useEffect(() => {
@@ -129,31 +204,18 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                     
                     renderedSomething = true;
                     return (
-                      <div key={idx} className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            code({ node, inline, className, children, ...props }: any) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              return !inline && match ? (
-                                <SyntaxHighlighter
-                                  style={syntaxTheme}
-                                  language={match[1]}
-                                  PreTag="div"
-                                  {...props}
-                                >
-                                  {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
-                              ) : (
-                                <code className={className} {...props}>
-                                  {children}
-                                </code>
-                              );
-                            }
-                          }}
-                        >
-                          {textContent}
-                        </ReactMarkdown>
+                      <div key={idx} className="relative group">
+                        <div className="prose dark:prose-invert max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={getSmallMarkdownComponents()}
+                          >
+                            {preprocessTextForMarkdown(textContent)}
+                          </ReactMarkdown>
+                        </div>
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <CopyRawButton content={textContent} size="xs" />
+                        </div>
                       </div>
                     );
                   }
@@ -381,10 +443,20 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                       return <CommandOutputWidget output={output} onLinkDetected={onLinkDetected} />;
                     }
                     
-                    // Otherwise render as plain text
+                    // Otherwise render as plain text with pipe processing
                     return (
-                      <div className="text-sm">
-                        {contentStr}
+                      <div className="relative group">
+                        <div className="text-sm prose dark:prose-invert max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={getSmallMarkdownComponents()}
+                          >
+                            {preprocessTextForMarkdown(contentStr)}
+                          </ReactMarkdown>
+                        </div>
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <CopyRawButton content={contentStr} size="xs" />
+                        </div>
                       </div>
                     );
                   })()
@@ -641,8 +713,18 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                     
                     renderedSomething = true;
                     return (
-                      <div key={idx} className="text-sm">
-                        {textContent}
+                      <div key={idx} className="relative group">
+                        <div className="text-sm prose dark:prose-invert max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={getSmallMarkdownComponents()}
+                          >
+                            {preprocessTextForMarkdown(textContent)}
+                          </ReactMarkdown>
+                        </div>
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <CopyRawButton content={textContent} size="xs" />
+                        </div>
                       </div>
                     );
                   }
@@ -680,36 +762,35 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
                 </h4>
                 
                 {message.result && (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        code({ node, inline, className, children, ...props }: any) {
-                          const match = /language-(\w+)/.exec(className || '');
-                          return !inline && match ? (
-                            <SyntaxHighlighter
-                              style={syntaxTheme}
-                              language={match[1]}
-                              PreTag="div"
-                              {...props}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          ) : (
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          );
-                        }
-                      }}
-                    >
-                      {message.result}
-                    </ReactMarkdown>
+                  <div className="relative group">
+                    <div className="prose dark:prose-invert max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={getSmallMarkdownComponents()}
+                      >
+                        {preprocessTextForMarkdown(message.result)}
+                      </ReactMarkdown>
+                    </div>
+                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <CopyRawButton content={message.result} size="xs" />
+                    </div>
                   </div>
                 )}
                 
                 {message.error && (
-                  <div className="text-sm text-destructive">{message.error}</div>
+                  <div className="relative group">
+                    <div className="text-sm text-destructive prose dark:prose-invert max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={getSmallMarkdownComponents()}
+                      >
+                        {preprocessTextForMarkdown(message.error)}
+                      </ReactMarkdown>
+                    </div>
+                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <CopyRawButton content={message.error} size="xs" />
+                    </div>
+                  </div>
                 )}
                 
                 <div className="text-xs text-muted-foreground space-y-1 mt-2">

@@ -992,7 +992,7 @@ const FloatingPromptInputInner = (
       {/* Fixed Position Input Bar */}
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg",
+          "fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t-2 border-border/60 shadow-lg",
           dragActive && "ring-2 ring-primary ring-offset-2",
           className
         )}
@@ -1001,6 +1001,9 @@ const FloatingPromptInputInner = (
         onDragOver={handleDrag}
         onDrop={handleDrop}
       >
+        {/* Visible separator line */}
+        <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        <div className="w-full h-px bg-border/60 -mt-px" />
         <div className="container mx-auto">
           {/* Image previews */}
           {embeddedImages.length > 0 && (
