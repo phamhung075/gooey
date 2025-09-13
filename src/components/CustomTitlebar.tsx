@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Minus, Square, X, Bot, BarChart3, FileText, Network, Info, MoreVertical } from 'lucide-react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { Settings, Minus, Square, X, Bot, BarChart3, FileText, Network, Info, MoreVertical, ArrowUpDown } from 'lucide-react';
+import { getCurrentWindow, currentMonitor, LogicalSize, LogicalPosition } from '@tauri-apps/api/window';
 import { TooltipProvider, TooltipSimple } from '@/components/ui/tooltip-modern';
 
 interface CustomTitlebarProps {
@@ -23,6 +23,8 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isFullHeight, setIsFullHeight] = useState(false);
+  const [originalSize, setOriginalSize] = useState<{width: number, height: number, x: number, y: number} | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,6 +61,49 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = ({
       }
     } catch (error) {
       console.error('Failed to maximize/unmaximize window:', error);
+    }
+  };
+
+  const handleFullHeight = async () => {
+    try {
+      const window = getCurrentWindow();
+
+      if (isFullHeight) {
+        // Restore original size
+        if (originalSize) {
+          await window.setSize(new LogicalSize(originalSize.width, originalSize.height));
+          await window.setPosition(new LogicalPosition(originalSize.x, originalSize.y));
+          setIsFullHeight(false);
+          setOriginalSize(null);
+        }
+      } else {
+        // Store current size and expand to full height
+        const currentSize = await window.outerSize();
+        const currentPosition = await window.outerPosition();
+        const monitor = await currentMonitor();
+
+        if (monitor) {
+          console.log('Monitor object:', monitor);
+          console.log('Monitor keys:', Object.keys(monitor));
+
+          setOriginalSize({
+            width: currentSize.width,
+            height: currentSize.height,
+            x: currentPosition.x,
+            y: currentPosition.y
+          });
+
+          // Check if workArea exists, otherwise use size with some margin for taskbar
+          const height = monitor.workArea?.size?.height || monitor.size.height - 40; // 40px margin for taskbar
+          const yPos = monitor.workArea?.position?.y || 0;
+
+          await window.setSize(new LogicalSize(currentSize.width, height));
+          await window.setPosition(new LogicalPosition(currentPosition.x, yPos));
+          setIsFullHeight(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle full height:', error);
     }
   };
 
@@ -122,6 +167,26 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = ({
           >
             {isHovered && (
               <Square size={6} className="text-green-900 opacity-60 group-hover:opacity-100" />
+            )}
+          </button>
+
+          {/* Full Height button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFullHeight();
+            }}
+            className={`group relative w-3 h-3 rounded-full transition-all duration-200 flex items-center justify-center tauri-no-drag ${
+              isFullHeight
+                ? 'bg-purple-500 hover:bg-purple-600'
+                : 'bg-gray-400 hover:bg-gray-500'
+            }`}
+            title={isFullHeight ? "Restore height" : "Expand to full height"}
+          >
+            {isHovered && (
+              <ArrowUpDown size={6} className={`opacity-60 group-hover:opacity-100 ${
+                isFullHeight ? 'text-purple-900' : 'text-gray-900'
+              }`} />
             )}
           </button>
         </div>
