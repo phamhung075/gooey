@@ -65,6 +65,7 @@ import { open } from "@tauri-apps/plugin-shell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { FilePath } from "@/components/ui/FilePath";
 
 /**
  * Widget for TodoWrite tool - displays a beautiful TODO list
@@ -372,9 +373,7 @@ export const ReadWidget: React.FC<{ filePath: string; result?: any }> = ({ fileP
         <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
           <FileText className="h-4 w-4 text-primary" />
           <span className="text-sm">File content:</span>
-          <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-            {filePath}
-          </code>
+          <FilePath path={filePath} size="sm" />
         </div>
         {resultContent && <ReadResultWidget content={resultContent} filePath={filePath} />}
       </div>
@@ -385,9 +384,7 @@ export const ReadWidget: React.FC<{ filePath: string; result?: any }> = ({ fileP
     <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
       <FileText className="h-4 w-4 text-primary" />
       <span className="text-sm">Reading file:</span>
-      <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-        {filePath}
-      </code>
+      <FilePath path={filePath} size="sm" />
       {!result && (
         <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
           <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
@@ -1142,9 +1139,7 @@ export const EditWidget: React.FC<{
       <div className="flex items-center gap-2 mb-2">
         <FileEdit className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">Applying Edit to:</span>
-        <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-          {file_path}
-        </code>
+        <FilePath path={file_path} size="sm" />
       </div>
 
       <div className="rounded-lg border bg-zinc-950 overflow-hidden text-xs font-mono">
@@ -1690,8 +1685,7 @@ export const MultiEditWidget: React.FC<{
       </div>
       <div className="ml-6 space-y-2">
         <div className="flex items-center gap-2">
-          <FileText className="h-3 w-3 text-blue-500" />
-          <code className="text-xs font-mono text-blue-500">{file_path}</code>
+          <FilePath path={file_path} size="sm" />
         </div>
         
         <div className="space-y-1">
