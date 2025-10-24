@@ -93,9 +93,9 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = ({
             y: currentPosition.y
           });
 
-          // Check if workArea exists, otherwise use size with some margin for taskbar
-          const height = monitor.workArea?.size?.height || monitor.size.height - 40; // 40px margin for taskbar
-          const yPos = monitor.workArea?.position?.y || 0;
+          // Use monitor size with margin for taskbar
+          const height = monitor.size.height - 40; // 40px margin for taskbar
+          const yPos = 0;
 
           await window.setSize(new LogicalSize(currentSize.width, height));
           await window.setPosition(new LogicalPosition(currentPosition.x, yPos));

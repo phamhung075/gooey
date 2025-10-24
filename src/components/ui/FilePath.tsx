@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Copy, Check, File } from 'lucide-react';
 import { Button } from './button';
 import { TooltipProvider, TooltipSimple } from './tooltip-modern';
-import { getFileName, getParentAndFileName } from '@/lib/pathUtils';
+import { getParentAndFileName } from '@/lib/pathUtils';
 import { cn } from '@/lib/utils';
 
 interface FilePathProps {
